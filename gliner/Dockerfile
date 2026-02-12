@@ -5,11 +5,12 @@ RUN apt update && apt install -y \
     build-essential libboost-system-dev libboost-thread-dev \
     libboost-program-options-dev libboost-test-dev libboost-filesystem-dev \
     && rm -rf /var/lib/apt/lists/*
-    
+
 RUN pip install --break-system-packages pydantic langdetect python-mecab-ko janome indic-nlp-library jieba
 RUN pip install --break-system-packages gliner[gpu]
 RUN pip install --break-system-packages camel-tools spacy
 RUN pip install --break-system-packages gliner[gpu,tokenizers,stanza]==0.2.22
+RUN pip install --break-system-packages gliner2
 RUN pip cache purge
 
 RUN pip freeze > /requirements2.txt

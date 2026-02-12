@@ -4,3 +4,5 @@
 *.log
 log.txt
 upload_code.sh
+testing_bench/results/*.json
+testing_bench/input/*.parquet

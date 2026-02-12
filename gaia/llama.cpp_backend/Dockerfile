@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tritonserver:24.08-pyt-python-py3
+FROM nvcr.io/nvidia/tritonserver:25.10-pyt-python-py3
 
 RUN apt update && apt install -y \
     python3 python3-pip \
@@ -8,7 +8,7 @@ RUN apt update && apt install -y \
     libopenblas-dev libblas-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="75;89"" FORCE_CMAKE=1 \
+RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES='75;89'" FORCE_CMAKE=1 \
     pip install --break-system-packages llama-cpp-python --upgrade --force-reinstall --no-cache-dir
 RUN pip install --break-system-packages --no-cache-dir torch torchvision 
 RUN pip install --break-system-packages --upgrade pydantic huggingface_hub datasets transformers accelerate bitsandbytes sentencepiece openai
