@@ -2,6 +2,7 @@ from datasets import load_dataset
 import pandas as pd
 import polars as pl
 import numpy as np
+import os
 
 # 1. Definição das colunas desejadas
 colunas_flags = [
@@ -93,4 +94,7 @@ print(f"📊 DataFrame final pronto.")
 print(f"Total de linhas filtradas: {df_final_polars.height}")
 print(df_final_polars.head())
 
-df_final_polars.write_parquet("dataset_filtrado.parquet")
+if not os.path.exists("input"):
+    os.mkdir("input")
+
+df_final_polars.write_parquet("input/dataset_filtrado.parquet")

@@ -1,25 +1,19 @@
-# Triton Information Extraction
+# Triton-NER: Triton-Based Entity Recognition and Text Classification
 
-Containers configured for information extraction based on NVIDIA Triton
-
-Model: CEIA-UFG/Gemma-3-Gaia-PT-BR-4b-it
-
-## Backends
-
-### Python
-
-- Container: updated version of nvcr.io/nvidia/tritonserver:24.08-pyt-python-py3
-
-### vLLM
-
-- Container: updated version of nvcr.io/nvidia/tritonserver:25.10-vllm-python-py3
+Containers configured for information extraction based on NVIDIA Triton, with Gliner and Gliclass models.
 
 ## Build
 
-## Running backends
-
 ```sh
-cd <backend_dir> 
+cd gliner
 chmod +x up.sh
 ./up.sh
+```
+
+## Testing with example texts
+
+```sh
+cd gliner
+chmod +x run.sh
+./run.sh
 ```

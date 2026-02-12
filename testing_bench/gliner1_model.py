@@ -11,6 +11,7 @@ from gliner.data_processing.tokenizer import WordsSplitter
 from gliclass import GLiClassModel, ZeroShotClassificationPipeline
 from transformers import AutoTokenizer
 from tqdm import tqdm
+import torch
 
 #MAX_TOKENS = 128
 #MAX_TOKENS = 384

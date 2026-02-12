@@ -424,7 +424,7 @@ def get_testing_inputs():
     correct_clfs_hf = []
     true_entities_hf = []
 
-    hf_df = pl.read_parquet("dataset_filtrado.parquet")
+    hf_df = pl.read_parquet("input/dataset_filtrado.parquet")
     for row in hf_df.iter_rows(named=True):
         roteiro_str = '\n'.join([' - '.join(p) for p in row["roteiro_segmentado"]])
         texts_hf.append(roteiro_str)

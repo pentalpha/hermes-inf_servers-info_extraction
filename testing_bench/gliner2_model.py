@@ -9,6 +9,7 @@ import numpy as np
 from gliner2 import GLiNER2
 from gliner.data_processing.tokenizer import WordsSplitter
 from tqdm import tqdm
+import torch
 
 MAX_TOKENS = 400
 
