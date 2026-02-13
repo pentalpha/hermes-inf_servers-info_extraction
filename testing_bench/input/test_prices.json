@@ -2,5 +2,29 @@
     "gcp_n1_t4": {
         "dollars_hour_standard": 12.201,
         "dollars_hour_spot": 7.3
+    },
+    "gemini-3-flash-preview": {
+        "dollars_1m_tokens_in": 0.50,
+        "dollars_1m_tokens_out": 3.0
+    },
+    "gemini-2.5-pro": {
+        "dollars_1m_tokens_in": 1.25,
+        "dollars_1m_tokens_out": 10.0
+    },
+    "gemini-2.5-flash": {
+        "dollars_1m_tokens_in": 0.3,
+        "dollars_1m_tokens_out": 2.50
+    },
+    "gemini-2.5-flash-lite": {
+        "dollars_1m_tokens_in": 0.1,
+        "dollars_1m_tokens_out": 0.4
+    },
+    "gemini-2.0-flash": {
+        "dollars_1m_tokens_in": 0.1,
+        "dollars_1m_tokens_out": 0.4
+    },
+    "gemini-2.0-flash-lite": {
+        "dollars_1m_tokens_in": 0.075,
+        "dollars_1m_tokens_out": 0.3
     }
 }

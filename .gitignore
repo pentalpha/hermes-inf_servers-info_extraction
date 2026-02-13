@@ -5,4 +5,9 @@
 log.txt
 upload_code.sh
 testing_bench/results/*.json
+testing_bench/results/*.csv
 testing_bench/input/*.parquet
+testing_bench/testing_bench/gemini_cache/*
+testing_bench/make_df_alt.py
+.env
+testing_bench/.env

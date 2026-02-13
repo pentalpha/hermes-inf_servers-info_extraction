@@ -10,7 +10,10 @@ if __name__ == "__main__":
     try:
         with open("input/test_prices.json", "r") as f:
             prices = json.load(f)
-            standard_price_per_hour = prices["gcp_n1_t4"]["dollars_hour_standard"]
+            # Default standard price for time-based cost
+            standard_price_per_hour = prices.get("gcp_n1_t4", {}).get(
+                "dollars_hour_standard", 0
+            )
     except FileNotFoundError:
         print("Error: input/test_prices.json not found.")
         sys.exit(1)
@@ -82,13 +85,8 @@ if __name__ == "__main__":
             # mean_jw_sim
             row["mean_jw_sim"] = item.get("mean_metrics", {}).get("jw_sim")
 
-            row["mean_quality"] = (row["mean_fmax"] + row["mean_jw_sim"]) / 2
-
             # Categories (fmax for questions, jw_sim for labels)
             # Assumption: Questions end with "?" -> fmax. Others -> jw_sim.
-            # The prompt lists specific categories for mean_fmax, but also says:
-            # "For the categories ("* ?"), it should be fmax. For the labels, it should be jw_sim"
-            # We will iterate over keys available in the item's fmax/jw_sim dictionaries to populate columns.
 
             # Populate from fmax dict (for questions)
             for k, v in item.get("fmax", {}).items():
@@ -101,6 +99,7 @@ if __name__ == "__main__":
                     row[k] = v
 
             # Metadata & Costs
+            model_price_info = prices.get(full_model_name)
             meta = item.get("meta", {})
             samples = meta.get("samples", 446)
             gpu_seconds = meta.get("gpu_seconds", 0)
@@ -112,23 +111,59 @@ if __name__ == "__main__":
             row["tokens_per_second_out"] = tokens_out_sec
 
             # Million tokens
-            # (gpu_seconds * tokens_per_second) / 1e6
-            # Note: tokens_per_second is typically avg rate. Total tokens = rate * time.
-            total_tokens_in = tokens_in_sec * gpu_seconds
-            total_tokens_out = tokens_out_sec * gpu_seconds
+            # Try to get raw tokens first if available (for exact calculation)
+            # otherwise calculate from rate * time
+            raw_tokens_in = meta.get("tokens_total_in", tokens_in_sec * gpu_seconds)
+            raw_tokens_out = meta.get("tokens_total_out", tokens_out_sec * gpu_seconds)
 
-            row["million_input_tokens"] = total_tokens_in / 1_000_000.0
-            row["million_output_tokens"] = total_tokens_out / 1_000_000.0
+            million_input_tokens = raw_tokens_in / 1_000_000.0
+            million_output_tokens = raw_tokens_out / 1_000_000.0
 
-            # Cost
-            # price per hour * (seconds / 3600)
-            cost = standard_price_per_hour * (gpu_seconds / 3600.0)
+            row["million_input_tokens"] = million_input_tokens
+            row["million_output_tokens"] = million_output_tokens
+
+            # Cost Calculation
+            # Logic: Check if model has token-based pricing in test_prices.json
+            # If so, use token pricing. Else, fallback to time-based (standard_price_per_hour * time)
+
+            if model_price_info and "dollars_1m_tokens_in" in model_price_info:
+                # Token-based pricing
+                cost_in = (
+                    million_input_tokens * model_price_info["dollars_1m_tokens_in"]
+                )
+                cost_out = (
+                    million_output_tokens * model_price_info["dollars_1m_tokens_out"]
+                )
+                cost = cost_in + cost_out
+            else:
+                # Time-based pricing (fallback)
+                # If no specific time-based price found for this model, fallback to gcp_n1_t4 standard
+                # This assumes non-API models are running on our standard instance
+
+                # We could look for model-specific time pricing if needed, e.g. prices.get(full_model_name, {}).get("dollars_hour_standard")
+                # But currently prompt implies using gcp_n1_t4 for others.
+                hourly_rate = standard_price_per_hour
+                if model_price_info and "dollars_hour_standard" in model_price_info:
+                    hourly_rate = model_price_info["dollars_hour_standard"]
+
+                cost = hourly_rate * (gpu_seconds / 3600.0)
+
             row["total_cost"] = cost
-            row["cost_per_transcript"] = cost / samples
+            if samples > 0:
+                row["cost_per_transcript"] = cost / samples
+            else:
+                row["cost_per_transcript"] = 0
 
             data.append(row)
 
-    data.sort(key=lambda x: x["mean_quality"], reverse=True)
+    # Sort if mean_quality can be calculated (requires mean_fmax and mean_jw_sim to be non-None)
+    # We'll filter out rows where calculation fails for sorting, or treat Nonetype as 0
+    def get_quality(r):
+        fmax = r.get("mean_fmax") or 0
+        jw = r.get("mean_jw_sim") or 0
+        return (fmax + jw) / 2
+
+    data.sort(key=get_quality, reverse=True)
 
     # Create DataFrame
     import pandas as pd
