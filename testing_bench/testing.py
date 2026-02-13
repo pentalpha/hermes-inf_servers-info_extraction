@@ -35,6 +35,7 @@ entity_redundancies = {
 SIM_TH = 0.71
 NAME_SIM_TH = 0.7
 NUMBER_TH = 0.95
+USE_PERC = 0.96
 
 HONORIFICS = [
     r"\bdra\b", r"\bdr\b", r"\bdr\.\b", r"\bsr\b", r"\bsr\.\b", r"\bsra\b", r"\bsra\.\b",
@@ -101,7 +102,7 @@ def _process_single_column_fmax(args):
 
     # If no positive labels exist for this class, F1 is 0 by definition
     if total_positives == 0:
-        return col_id, 0.0, 0.0
+        return col_id, {'f1': 1.0, 'th': 0.0, 'recall': 1.0, 'precision': 1.0, 'recall_at_good_precision': 1.0}
 
     thresholds = np.linspace(0, 1, 150)
     best_f1 = 0.0
@@ -171,6 +172,10 @@ def find_fmax_per_col_parallel(
 
     n_samples, n_labels = scores_matrix.shape
 
+    print("scores_matrix.shape", scores_matrix.shape)
+    print("labels_matrix.shape", labels_matrix.shape)
+    print("col_ids", col_ids)
+
     if len(col_ids) != n_labels:
         raise ValueError("Column IDs must match number of labels.")
 
@@ -195,7 +200,10 @@ def find_fmax_per_col_parallel(
         )
 
     # Unpack results
-    for col_id, result_dict in results:
+    print("Number of results", len(results))
+    for r in results:
+        col_id = r[0]
+        result_dict = r[1]
         fmax_per_col[col_id] = result_dict['f1']
         best_thresholds[col_id] = result_dict['th']
         recalls_at_good_precisions[col_id] = result_dict['recall_at_good_precision']
@@ -533,7 +541,7 @@ def get_testing_inputs():
         }
     }
 
-    rac_perc = 0.04
+    rac_perc = 1.0 - USE_PERC
     #set default seed:
     np.random.seed(1337)
     rac_indexes = np.random.choice(len(texts_hf), int(len(texts_hf) * rac_perc), 

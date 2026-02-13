@@ -1,0 +1,74 @@
+[
+    {
+        "model": "numind/NuExtract-2.0-4B",
+        "mean_metrics": {
+            "fmax": 0.5393940256423074,
+            "jw_sim": 0.7549811984285705,
+            "recall": 0.6665121389115993,
+            "precision": 0.6104557011147017
+        },
+        "meta": {
+            "tokens_per_second_in": 124.15287302767892,
+            "tokens_per_second_out": 29.631267585414445,
+            "gpu_seconds": 3367.388847351074
+        },
+        "fmax": {
+            "Fato Ocorrendo Neste Momento ?": 0.8933143669985775,
+            "Autor Do Fato No Local ?": 0.8083623693379791,
+            "Autor Do Fato Armado ?": 0.27999999999999997,
+            "Feridos Com Risco de Morte ?": 0.32478632478632474,
+            "Risco De Tumulto ?": 0.33136094674556216,
+            "Lei Maria da Penha ?": 0.5985401459854015
+        },
+        "jw_sim": {
+            "rua_ou_logradouro": 0.89744835251874,
+            "bairro": 0.6843614417517295,
+            "cidade": 0.8161532394049876,
+            "ponto_de_referencia": 0.680984597688489,
+            "nome_do_solicitante": 0.8222780866244362,
+            "pessoa": 0.4846721751722426,
+            "numero": 0.8890952418997264,
+            "complemento": 0.7648564523682125
+        },
+        "recall": {
+            "Fato Ocorrendo Neste Momento ?": 0.9781931464174455,
+            "Autor Do Fato No Local ?": 0.7532467532467533,
+            "Autor Do Fato Armado ?": 0.5833333333333334,
+            "Feridos Com Risco de Morte ?": 0.6951219512195121,
+            "Risco De Tumulto ?": 0.9180327868852459,
+            "Lei Maria da Penha ?": 0.5394736842105263,
+            "rua_ou_logradouro": 0.891566265060241,
+            "bairro": 0.6785714285714286,
+            "cidade": 0.40601503759398494,
+            "ponto_de_referencia": 0.5340314136125655,
+            "nome_do_solicitante": 0.8970588235294118,
+            "pessoa": 0.16820276497695852,
+            "numero": 0.9246861924686193,
+            "complemento": 0.36363636363636365
+        },
+        "precision": {
+            "Fato Ocorrendo Neste Momento ?": 0.8219895287958116,
+            "Autor Do Fato No Local ?": 0.8721804511278195,
+            "Autor Do Fato Armado ?": 0.18421052631578946,
+            "Feridos Com Risco de Morte ?": 0.21189591078066913,
+            "Risco De Tumulto ?": 0.20216606498194944,
+            "Lei Maria da Penha ?": 0.6721311475409836,
+            "rua_ou_logradouro": 0.7505070993914807,
+            "bairro": 0.5080213903743316,
+            "cidade": 0.9310344827586207,
+            "ponto_de_referencia": 0.8755364806866953,
+            "nome_do_solicitante": 0.756198347107438,
+            "pessoa": 0.9125,
+            "numero": 0.7222222222222222,
+            "complemento": 0.12578616352201258
+        },
+        "best_thresholds": {
+            "Fato Ocorrendo Neste Momento ?": 0.35570469798657717,
+            "Autor Do Fato No Local ?": 0.5033557046979865,
+            "Autor Do Fato Armado ?": 0.8053691275167785,
+            "Feridos Com Risco de Morte ?": 0.20134228187919462,
+            "Risco De Tumulto ?": 0.20134228187919462,
+            "Lei Maria da Penha ?": 0.5033557046979865
+        }
+    }
+]
