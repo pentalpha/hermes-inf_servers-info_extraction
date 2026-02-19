@@ -39,13 +39,13 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
 class RespostaDeClassificacao(str, Enum):
-    CERTAMENTE_SIM = "Certamente Sim"
+    #CERTAMENTE_SIM = "Certamente Sim"
     SIM = "Sim"
-    PROVAVELMENTE_SIM = "Provavelmente Sim"
-    NAO_SEI = "Não sei"
-    PROVAVELMENTE_NAO = "Provavelmente Não"
+    #PROVAVELMENTE_SIM = "Provavelmente Sim"
+    #NAO_SEI = "Não sei"
+    #PROVAVELMENTE_NAO = "Provavelmente Não"
     NAO = "Não"
-    CERTAMENTE_NAO = "Certamente Não"
+    #CERTAMENTE_NAO = "Certamente Não"
 
 
 class DetalhesGravidadeOcorrencia(pydantic.BaseModel):
@@ -82,11 +82,11 @@ class GeminiExtract:
 
         self.answer_to_value = {
             "Certamente Sim": 1.0,
-            "Sim": 0.8,
+            "Sim": 0.95,
             "Provavelmente Sim": 0.65,
             "Não sei": 0.5,
             "Provavelmente Não": 0.35,
-            "Não": 0.2,
+            "Não": 0.05,
             "Certamente Não": 0.0,
         }
 
