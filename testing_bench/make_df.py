@@ -109,6 +109,7 @@ if __name__ == "__main__":
             row["total_runtime"] = gpu_seconds
             row["tokens_per_second_in"] = tokens_in_sec
             row["tokens_per_second_out"] = tokens_out_sec
+            row["samples"] = samples
 
             # Million tokens
             # Try to get raw tokens first if available (for exact calculation)
@@ -156,6 +157,15 @@ if __name__ == "__main__":
 
             data.append(row)
 
+    # Deduplicate by full_model, keeping the one with the highest samples
+    best_entries = {}
+    for entry in data:
+        model = entry["full_model"]
+        curr_samples = entry.get("samples", 0)
+        if model not in best_entries or curr_samples > best_entries[model].get("samples", 0):
+            best_entries[model] = entry
+    data = list(best_entries.values())
+
     # Sort if mean_quality can be calculated (requires mean_fmax and mean_jw_sim to be non-None)
     # We'll filter out rows where calculation fails for sorting, or treat Nonetype as 0
     def get_quality(r):
@@ -176,3 +186,7 @@ if __name__ == "__main__":
 
     df.to_csv(output_path, index=False)
     print(f"Saved dataframe to {output_path}")
+
+    excel_output = output_path.replace(".csv", ".xlsx")
+    df.to_excel(excel_output, index=False)
+    print(f"Saved dataframe to {excel_output}")
