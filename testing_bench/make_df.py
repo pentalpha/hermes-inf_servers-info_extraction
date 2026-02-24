@@ -155,30 +155,42 @@ if __name__ == "__main__":
             else:
                 row["cost_per_transcript"] = 0
 
+            row["mean_quality"] = (row["mean_fmax"] + row["mean_jw_sim"]) / 2
+
             data.append(row)
 
     # Deduplicate by full_model, keeping the one with the highest samples
+    # If the same number of samples, keep the one with the highest mean_quality
     best_entries = {}
     for entry in data:
         model = entry["full_model"]
         curr_samples = entry.get("samples", 0)
-        if model not in best_entries or curr_samples > best_entries[model].get("samples", 0):
+        curr_quality = entry.get("mean_quality", 0)
+        if model not in best_entries or curr_samples > best_entries[model].get("samples", 0) or (curr_samples == best_entries[model].get("samples", 0) and curr_quality > best_entries[model].get("mean_quality", 0)):
             best_entries[model] = entry
     data = list(best_entries.values())
 
     # Sort if mean_quality can be calculated (requires mean_fmax and mean_jw_sim to be non-None)
     # We'll filter out rows where calculation fails for sorting, or treat Nonetype as 0
-    def get_quality(r):
-        fmax = r.get("mean_fmax") or 0
-        jw = r.get("mean_jw_sim") or 0
-        return (fmax + jw) / 2
-
-    data.sort(key=get_quality, reverse=True)
+    data.sort(key=lambda x: x["mean_quality"], reverse=True)
 
     # Create DataFrame
     import pandas as pd
 
     df = pd.DataFrame(data)
+
+    max_samples = 429
+    #make samples 429 if it is higher:
+    df["samples"] = df["samples"].apply(lambda x: max_samples if x > max_samples else x)
+    success_rate = df["samples"] / max_samples
+    df["success_rate"] = success_rate
+
+    df["Qualidade Geral"] = df["mean_quality"] * df["success_rate"]
+    df["Qualidade Classificação"] = df["mean_fmax"] * df["success_rate"]
+    df["Qualidade Reconhecimento de Entidades"] = df["mean_jw_sim"] * df["success_rate"]
+
+    #sort again
+    df = df.sort_values(by="Qualidade Geral", ascending=False)
 
     # Ensure output directory exists
     output_path = "results/df.csv"
@@ -190,3 +202,15 @@ if __name__ == "__main__":
     excel_output = output_path.replace(".csv", ".xlsx")
     df.to_excel(excel_output, index=False)
     print(f"Saved dataframe to {excel_output}")
+
+    df_simples = df[["ner_model", "classification_model", "Qualidade Geral", 
+        "Qualidade Classificação", 
+        "Qualidade Reconhecimento de Entidades", "total_cost", "cost_per_transcript",
+        "success_rate", "total_runtime"]]
+
+    df_simples_path = output_path.replace(".csv", "_simples.xlsx")
+    df_simples.to_excel(df_simples_path, index=False)
+    print(f"Saved dataframe to {df_simples_path}")
+
+    df_simples.to_csv(df_simples_path.replace(".xlsx", ".csv"), index=False)
+    print(f"Saved dataframe to {df_simples_path.replace('.xlsx', '.csv')}")

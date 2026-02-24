@@ -5,9 +5,11 @@
 The following sequence of commands will install the required packages, load a specialized dataset from HF and make inferences with several models.
 
 ```sh
-pip install -r requirements.txt
+pip install -r requirements2.txt
 python dataset_loading.py
-python testing.py results/gli_results.json
+python test_gliner.py results/gli_results.json
+python test_azure.py results/azure_results.json
+python test_gemini.py results/gemini_results.json
 ```
 
 ### 1.1. NuExtract
@@ -38,8 +40,9 @@ Now, do the same for 4B model.
 python test_nuextract.py results/nuextract_results.json numind/NuExtract-2.0-4B
 ```
 
-## 2. Parse Results
+## 2. Generate Results
 
 ```sh
-python make_df.py results/nuextract_results.json results/gli_results.json
+python make_df.py results/nuextract_results.json results/gli_results.json results/azure_results.json results/gemini_results.json
+python make_plots.py
 ```

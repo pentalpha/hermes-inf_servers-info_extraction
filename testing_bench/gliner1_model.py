@@ -8,14 +8,23 @@ from typing import List
 import numpy as np
 from gliner import GLiNER
 from gliner.data_processing.tokenizer import WordsSplitter
-from gliclass import GLiClassModel, ZeroShotClassificationPipeline
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, pipeline
 from tqdm import tqdm
 import torch
 
 #MAX_TOKENS = 128
 #MAX_TOKENS = 384
 MAX_TOKENS = 340
+
+answer_to_value = {
+    "Certamente Sim": 1.0,
+    "Sim": 0.95,
+    "Provavelmente Sim": 0.65,
+    "Não sei": 0.5,
+    "Provavelmente Não": 0.35,
+    "Não": 0.05,
+    "Certamente Não": 0.0,
+}
 
 def load_gliner_cuda(model_name_str):
     word_splitter_name = 'spacy'
@@ -141,17 +150,29 @@ class TritonPythonModel:
         else:
             self.clf_model_id = "knowledgator/gliclass-large-v3.0"
 
-        print(f"Carregando modelo {self.model_id}...")
+        #print(f"Carregando modelo {self.model_id}...")
         self.model, self.word_splitter = load_gliner_cuda(self.model_id)
 
-        self.clf_model = GLiClassModel.from_pretrained(self.clf_model_id)
-        self.clf_tokenizer = AutoTokenizer.from_pretrained(self.clf_model_id)
-
-        self.clf_pipeline = ZeroShotClassificationPipeline(
-            self.clf_model, self.clf_tokenizer, 
-            classification_type='multi-label', device='cuda:0',
-            progress_bar=False
-        )
+        print(f"Carregando modelo {self.clf_model_id}...")
+        if "gliclass" in self.clf_model_id:
+            from gliclass import GLiClassModel, ZeroShotClassificationPipeline
+            clf_model = GLiClassModel.from_pretrained(self.clf_model_id)
+            clf_tokenizer = AutoTokenizer.from_pretrained(self.clf_model_id)
+            self.clf_pipeline = ZeroShotClassificationPipeline(
+                clf_model, clf_tokenizer, 
+                classification_type='multi-label', device='cuda:0',
+                progress_bar=False
+            )
+            self.is_gliclass = True
+        else:
+            self.clf_pipeline = pipeline(
+                "zero-shot-classification",
+                model=self.clf_model_id,
+                device='cuda:0',
+                multi_label=True,
+                trust_remote_code=True
+            )
+            self.is_gliclass = False
         #self.clf_pipeline.set_progress_bar_config(disable=True)
 
     def find_labels(self, labels_list, transcript):
@@ -189,7 +210,9 @@ class TritonPythonModel:
             name_translator = {n.replace(' ?', ''): n for n in classification_schema}
             no_interrogation_labels = list(name_translator.keys())
             examples = []
-            if len(examples) == 0:
+            if self.is_gliclass == False:
+                results = self.clf_pipeline(transcript, no_interrogation_labels, multi_label=True)
+            elif len(examples) == 0:
                 results = self.clf_pipeline(transcript, no_interrogation_labels, threshold=0.001)[0]
             else:
                 results = self.clf_pipeline(transcript, no_interrogation_labels, 
@@ -201,51 +224,20 @@ class TritonPythonModel:
                 include_confidence=True,
                 include_spans=False,
             )'''
-            new_entities = [
-                    {'label': name_translator[r['label']], 
-                    'confidence': r['score']} 
-                for r in results]
+            if self.is_gliclass:
+                new_entities = [
+                        {'label': name_translator[r['label']], 
+                        'confidence': r['score']} 
+                    for r in results]
+            else:
+                new_entities = [{'label': name_translator[label], 'confidence': score} 
+                    for score, label in zip(results['scores'], results['labels'])]
+
             #print(new_entities)
             infer_finish = time.time()
             req_duration = infer_finish - req_start
 
             return new_entities, req_duration
-        except Exception as err:
-            raise Exception(
-                "Error classifying transcript: "
-                + str(err)
-                + "\nWith clf schema:\n"
-                + str(classification_schema)
-            )
-
-    def classify_by_schema_hierarchical(self, classification_schema, transcript):
-        #requires version 0.1.14 of gliclass, but has very worse results
-        try:
-            req_start = time.time()
-            name_translator = {n.replace(' ?', ''): n for n in classification_schema.keys()}
-            no_interrogation_labels = {k.replace(' ?', ''): v 
-                for k, v in classification_schema.items()}
-            results = self.clf_pipeline(transcript, no_interrogation_labels, 
-                threshold=0.001)[0]
-            infer_finish = time.time()
-            req_duration = infer_finish - req_start
-
-            results2 = {}
-            for infer in results:
-                label_raw = infer['label']
-                score = infer['score']
-                label_group = label_raw.split('.')[0]
-                label_group = name_translator[label_group]
-                label_name = label_raw.split('.')[1]
-                if label_group not in results2:
-                    results2[label_group] = {}
-                results2[label_group][label_name] = score
-            #print(classification_schema, file=sys.stderr)
-            #print(results, file=sys.stderr)
-            #print(results2, file=sys.stderr)
-            #quit(1)
-
-            return results2, req_duration
         except Exception as err:
             raise Exception(
                 "Error classifying transcript: "
@@ -272,14 +264,12 @@ class TritonPythonModel:
             if "boolean" in classification_schema_dict:
                 classification_schema_raw = classification_schema_dict["boolean"]
 
-                classification_schema_1 = {}
+                #classification_schema_1 = {}
                 multilabel_schemas = {}
                 for key, value in classification_schema_raw.items():
                     entity_names = []
                     for entity_name, info in value.items():
-                        nome_sim = info["sim"]
-                        nome_nao = info["nao"]
-                        classification_schema_1[entity_name] = [nome_sim, nome_nao]
+                        #classification_schema_1[entity_name] = info['answers']
                         entity_names.append(entity_name)
                     multilabel_schemas[key] = entity_names
 
@@ -295,24 +285,6 @@ class TritonPythonModel:
                         new_entities_raw.append({"label": label, "confidence": 0.0})
                     results_multilabel0 += new_entities_raw
 
-                '''hq_entities, req_duration3 = self.classify_by_schema_hierarchical(classification_schema_1, transcript)
-                gpu_usage_secs += req_duration3
-
-                for label_name, option_scores in hq_entities.items():
-                    yes_name = classification_schema_1[label_name][0]
-                    no_name = classification_schema_1[label_name][1]
-                    if yes_name in option_scores:
-                        yes_score = option_scores[yes_name]
-                    else:
-                        yes_score = 0.0
-                    if no_name in option_scores:
-                        no_score = option_scores[no_name]
-                    else:
-                        no_score = 0.0
-                    if yes_score > no_score:
-                        results_multilabel0.append({"label": label_name, "confidence": yes_score})
-                    else:
-                        results_multilabel0.append({"label": label_name, "confidence": 1.0-no_score})'''
                     
                 results_final = {}
                 for label_info in results_multilabel0:
