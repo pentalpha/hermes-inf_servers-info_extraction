@@ -46,5 +46,21 @@
     "gpt-5.2-chat": {
         "dollars_1m_tokens_in": 1.75,
         "dollars_1m_tokens_out": 14
+    },
+    "gpt-5-chat": {
+        "dollars_1m_tokens_in": 1.25,
+        "dollars_1m_tokens_out": 10
+    },
+    "gpt-4.1": {
+        "dollars_1m_tokens_in": 2,
+        "dollars_1m_tokens_out": 8
+    },
+    "gpt-4o-mini": {
+        "dollars_1m_tokens_in": 0.15,
+        "dollars_1m_tokens_out": 0.6
+    },
+    "o4-mini": {
+        "dollars_1m_tokens_in": 1.1,
+        "dollars_1m_tokens_out": 4.4
     }
 }

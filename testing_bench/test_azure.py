@@ -372,7 +372,11 @@ if __name__ == "__main__":
         "gpt-5-mini",
         #"DeepSeek-R1-0528",
         "gpt-4.1-nano",
-        "o3-mini"
+        "o3-mini",
+        "gpt-5-chat",
+        "gpt-4.1",
+        "gpt-4o-mini",
+        "o4-mini"
     ]
 
     models_to_test = list(reversed(models_to_test))
@@ -388,9 +392,9 @@ if __name__ == "__main__":
     existing_models = [r.get("model") for r in results]
 
     for model_name in models_to_test:
-        """if model_name in existing_models:
-        print(f"Model {model_name} already in results. Skipping.")
-        continue"""
+        if model_name in existing_models:
+            print(f"Model {model_name} already in results. Skipping.")
+            continue
 
         print(f"=== Testing {model_name} ===")
 
