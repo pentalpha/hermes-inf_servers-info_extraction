@@ -9,18 +9,16 @@ model_type_to_format = {
     "Gliner v1": "o",
     "Gliner v2": "s",
     "NuExtract": "^",
-    "GPT": "d",
-    "Gemini": "p",
-    "Others": "h"
+    "Geração de Texto - Abertos": "h",
+    "Geração de Texto - Comerciais": "p",
 }
 
 model_type_to_colors = {
     "Gliner v1": "red",
     "Gliner v2": "darkred",
     "NuExtract": "green",
-    "GPT": "purple",
-    "Gemini": "orange",
-    "Others": "gray"
+    "Geração de Texto - Abertos": "blue",
+    "Geração de Texto - Comerciais": "orange"
 }
 
 def get_ner_model_type(ner_name):
@@ -37,17 +35,17 @@ def get_ner_model_type(ner_name):
         else:
             return "Gliner v1"
     elif "gpt" in ner_name.lower():
-        return "GPT"
+        return "Geração de Texto - Comerciais"
     elif ner_name.lower().startswith("o") and (ner_name.lower()[-1].isdigit() or ner_name.lower()[1].isdigit()):
         #o3, o4, o4.1...
-        return "GPT"
+        return "Geração de Texto - Comerciais"
     elif "gemini" in ner_name.lower():
-        return "Gemini"
+        return "Geração de Texto - Comerciais"
     elif "nuextract" in ner_name.lower():
         return "NuExtract"
     else:
         print("Other is", ner_name)
-        return "Others"
+        return "Geração de Texto - Abertos"
 
 def sep_model_types(df):
     #Adds a column for type of LLM
@@ -62,17 +60,26 @@ def simple_hf_name(df):
 def model_subtype(df):
     #Replace - and _ with ' ', identify the first word
     #Remove first word, remove _ / - from start of string
-    def to_subtype(ner_name):
-        words = ner_name.replace("-", " ").replace("_", " ").split(" ")
-        first_w = words[0]
-        if len(words) > 0:
-            if first_w in ['o3', 'o4', 'o4.1']:
-                return ner_name
-            return ner_name.replace(first_w, "").strip(" -_")
+    def to_subtype(row):
+        simple_name = row['simple_name']
+        model_type = row['Tipo de Modelo']
+        if model_type == "Geração de Texto - Abertos":
+            simple_name = simple_name.replace("-Instruct-2507-FP8", "")
+            simple_name = simple_name.replace("-Instruct-2512", "")
+            return simple_name
+        elif model_type == "Geração de Texto - Comerciais":
+            return simple_name
         else:
-            return ner_name
+            words = simple_name.replace("-", " ").replace("_", " ").split(" ")
+            first_w = words[0]
+            if len(words) > 0:
+                if first_w in ['o3', 'o4', 'o4.1']:
+                    return simple_name
+                return simple_name.replace(first_w, "").strip(" -_")
+            else:
+                return simple_name
 
-    df["subtype"] = df["simple_name"].apply(to_subtype)
+    df["subtype"] = df.apply(to_subtype, axis=1)
     return df   
 
 def plot_cost_vs_latency_vs_quality(df):
@@ -80,18 +87,18 @@ def plot_cost_vs_latency_vs_quality(df):
     X axis is cost, Y axis is latency, color is quality
     Good quality should be blue, bad quality should be red
     '''
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 7.5))
 
     #If the model is Gliner v1, Gliner v2 or Others, keep only the rows where the clf model is knowledgator/gliclass-large-v3.0
     df_gliners = df[(df["Tipo de Modelo"] == "Gliner v1") | (df["Tipo de Modelo"] == "Gliner v2") | (df["Tipo de Modelo"] == "Others")]
     df_gliners = df_gliners[df_gliners["classification_model"] == "knowledgator/gliclass-large-v3.0"]
 
-    df_not_gliners = df[(df["Tipo de Modelo"] != "Gliner v1") & (df["Tipo de Modelo"] != "Gliner v2") & (df["Tipo de Modelo"] != "Others")]
-
-    df = pd.concat([df_gliners, df_not_gliners])
+    #df_not_gliners = df[(df["Tipo de Modelo"] != "Gliner v1") & (df["Tipo de Modelo"] != "Gliner v2") & (df["Tipo de Modelo"] != "Others")]
+    #df_not_gliners = df[~df["Tipo de Modelo"].str.contains("Gliner")]
+    #df = pd.concat([df_gliners, df_not_gliners])
 
     #keep onlythe top 18 results, using general quality
-    df = df.nlargest(18, "Qualidade Geral")
+    
 
     tipos_bons = df["Tipo de Modelo"].unique()
     print(tipos_bons)
@@ -106,11 +113,18 @@ def plot_cost_vs_latency_vs_quality(df):
     cmap = plt.cm.RdBu
 
     df["color"] = df["Qualidade Geral"].apply(lambda x: cmap(norm(x)))
+    df_to_name = df.nlargest(22, "Qualidade Geral")
 
     for model_type, type_df in df.groupby("Tipo de Modelo"):
         scatter = ax.scatter(type_df["total_cost"], type_df["total_runtime"], c=type_df["color"], 
+            marker=model_type_to_format[model_type], label=model_type, linewidths=0,
+            s=190, alpha=0.9)
+
+    for model_type, type_df in df_to_name.groupby("Tipo de Modelo"):
+        scatter = ax.scatter(type_df["total_cost"], type_df["total_runtime"], c=type_df["color"], 
             marker=model_type_to_format[model_type], label=model_type, linewidths=1, edgecolors="black",
-            s=200, alpha=0.92)
+            s=230, alpha=0.95)
+    
 
     for index, row in df.iterrows():
         print(row["Tipo de Modelo"], row["subtype"], row["Qualidade Geral"])
@@ -155,24 +169,28 @@ def plot_cost_vs_latency_vs_quality(df):
     ax.legend(handles=legend_elements, bbox_to_anchor=(0.5, -0.1), loc='upper center', ncol=5)
 
     #Add text labels for all results
-    for i, row in df.iterrows():
+    for i, row in df_to_name.iterrows():
         #Centered text, semi-transparent, small font
-        ax.annotate(row["subtype"], (row["total_cost"], row["total_runtime"]),
+        annot_point = (row["total_cost"], row["total_runtime"])
+        text_point = (60, 60)
+        ax.annotate(row["subtype"], annot_point, xytext=text_point, textcoords="offset pixels",
+            arrowprops = {"arrowstyle": "simple"},
             ha="center", va="bottom", fontsize=8, alpha=0.85)
     
     #Save plot
     plt.savefig("results/cost_vs_latency_vs_quality.png", dpi=300, bbox_inches="tight")
+    plt.savefig("results/cost_vs_latency_vs_quality.svg", dpi=300, bbox_inches="tight")
     plt.close()
 
 def ner_vs_clf_quality(df):
     #Scatter all the results, but name only the 20 best and gliner v2
     df_gliner_v2 = df[df["Tipo de Modelo"] == "Gliner v2"]
-    df_best = df.nlargest(20, "Qualidade Geral")
+    df_best = df.nlargest(22, "Qualidade Geral")
     df_named = pd.concat([df_gliner_v2, df_best])
 
     tipos_encontrados = df["Tipo de Modelo"].unique()
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 7.5))
 
     ax.set_xlabel("Reconhecimento de Entidades")
     ax.set_ylabel("Classificação")
@@ -188,6 +206,14 @@ def ner_vs_clf_quality(df):
             marker=model_type_to_format[model_type], label=model_type, #linewidths=1, edgecolors="black",
             s=170, alpha=0.8)
 
+    for model_type, type_df in df_named.groupby("Tipo de Modelo"):
+        color = model_type_to_colors[model_type]
+        scatter = ax.scatter(type_df["Qualidade Reconhecimento de Entidades"], 
+            type_df["Qualidade Classificação"], c=color,
+            marker=model_type_to_format[model_type], 
+            linewidths=0.6, edgecolors="black",
+            s=200, alpha=0.9)
+
 
     #Legend outside plot of model types, with custom markers
     #Placed below graph to not overlap colorbar
@@ -202,11 +228,17 @@ def ner_vs_clf_quality(df):
     #Add text labels for all results
     for i, row in df_named.iterrows():
         #Centered text, semi-transparent, small font
-        ax.annotate(row["subtype"], (row["Qualidade Reconhecimento de Entidades"], row["Qualidade Classificação"]),
+        point_coords = (row["Qualidade Reconhecimento de Entidades"], 
+            row["Qualidade Classificação"])
+        xy_offset = (60, 60)
+        arrow_props = {"arrowstyle": "simple"}
+        ax.annotate(row["subtype"], point_coords, xytext=xy_offset, textcoords="offset pixels",
+            arrowprops=arrow_props,
             ha="center", va="bottom", fontsize=8, alpha=0.85)
     
     #Save plot
     plt.savefig("results/ner_vs_clf_quality.png", dpi=300, bbox_inches="tight")
+    plt.savefig("results/ner_vs_clf_quality.svg", dpi=300, bbox_inches="tight")
     plt.close()
     
     
