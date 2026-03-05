@@ -9,12 +9,16 @@ import numpy as np
 from gliner import GLiNER
 from gliner.data_processing.tokenizer import WordsSplitter
 from transformers import AutoTokenizer, pipeline
+import triton_python_backend_utils as pb_utils
 from tqdm import tqdm
 import torch
 
-#MAX_TOKENS = 128
-#MAX_TOKENS = 384
-MAX_TOKENS = 340
+'''MAX_TOKENS = 128
+MAX_TOKENS = 384
+MAX_TOKENS = 340'''
+MAX_TOKENS = 520
+
+MAX_WINDOW_BATCH = 8
 
 answer_to_value = {
     "Certamente Sim": 1.0,
@@ -280,7 +284,7 @@ class TritonPythonModel:
 
         self.warmup_model()
 
-    def infer_only(self, transcripts: List[str], classification_schema_str):
+    def infer_only(self, transcripts: List[str], classification_schema_str, batch_size=MAX_WINDOW_BATCH):
         classification_schema_dict = json.loads(classification_schema_str)
         transcript_parts = []
         transcript_ids = []
@@ -295,7 +299,7 @@ class TritonPythonModel:
             labels_list = list(entities_schema.keys()) if type(entities_schema) == dict else entities_schema
             req_start = time.time()
             labels_raw = self.model.inference(transcript_parts, labels_list, 
-                threshold=0.5, flat_ner=False)
+                threshold=0.5, flat_ner=False, batch_size=batch_size)
             infer_finish = time.time()
             req_duration1 = infer_finish - req_start
         else:
@@ -327,12 +331,14 @@ class TritonPythonModel:
                 examples = []
                 start_clf = time.time()
                 if self.is_gliclass == False:
-                    results = self.clf_pipeline(transcript_parts, no_interrogation_labels, multi_label=True)
+                    results = self.clf_pipeline(transcript_parts, no_interrogation_labels,
+                        multi_label=True, batch_size=batch_size)
                 elif len(examples) == 0:
-                    results = self.clf_pipeline(transcript_parts, no_interrogation_labels, threshold=0.001)
+                    results = self.clf_pipeline(transcript_parts, no_interrogation_labels, 
+                        threshold=0.001, batch_size=batch_size)
                 else:
                     results = self.clf_pipeline(transcript_parts, no_interrogation_labels, 
-                        threshold=0.001, rac_examples=examples)
+                        threshold=0.001, rac_examples=examples, batch_size=batch_size)
                 finish_clf = time.time()
                 clf_t = finish_clf - start_clf
                 req_duration2 += clf_t
@@ -369,11 +375,11 @@ class TritonPythonModel:
     def post_process_clf(self, results, ml_categories, name_translator):
         if self.is_gliclass:
             new_entities_raw = []
-            print(name_translator)
+            #print(name_translator)
             for r in results:
-                print(r)
+                #print(r)
                 for info_score in r:
-                    print(info_score)
+                    #print(info_score)
                     obj = {'label': name_translator[info_score['label']], 
                         'confidence': info_score['score']}
                     new_entities_raw.append(obj)
@@ -413,13 +419,13 @@ class TritonPythonModel:
             req_duration1, req_duration2, 
             multilabel_schemas, labels_list, name_translator) = infers
         
-        print("transcript_ids", len(transcript_ids), transcript_ids)
+        '''print("transcript_ids", len(transcript_ids), transcript_ids)
         print("labels_raw", len(labels_raw), labels_raw)
         print("clf_results", len(clf_results))
-        print("clf_results_local", len(clf_results[0]), clf_results[0][0])
+        print("clf_results_local", len(clf_results[0]), clf_results[0][0])'''
         labels_processed = [self.post_process_labels(raw_info, labels_list) 
             for raw_info in labels_raw]
-        print("labels_processed", len(labels_processed), labels_processed[0])
+        #print("labels_processed", len(labels_processed), labels_processed[0])
         clfs_processed = []
 
         for clf_schema_n, ml_categories in enumerate(multilabel_schemas):
@@ -432,16 +438,16 @@ class TritonPythonModel:
             clfs_processed.append(processed_windows)
         
         ids_unique = set(transcript_ids)
-        print("ids_unique", len(ids_unique), ids_unique)
-        print("clfs_processed", len(clfs_processed), clfs_processed[0])
-        print("clf_schema_results", len(clfs_processed[0]), clfs_processed[0][0])
+        #print("ids_unique", len(ids_unique), ids_unique)
+        #print("clfs_processed", len(clfs_processed), clfs_processed[0])
+        #print("clf_schema_results", len(clfs_processed[0]), clfs_processed[0][0])
 
         joined_results = []
         for uniq_id in sorted(ids_unique):
-            print("uniq_id", uniq_id)
+            #print("uniq_id", uniq_id)
             transcript_part_idx = [pos for pos, idx in enumerate(transcript_ids) 
                 if idx == uniq_id]
-            print("transcript_part_idx", len(transcript_part_idx), transcript_part_idx)
+            #print("transcript_part_idx", len(transcript_part_idx), transcript_part_idx)
             
             entities_dicts = [{} for _ in range(len(transcript_part_idx))]
             labels_processed_local = [labels_processed[pos] for pos in transcript_part_idx]
@@ -482,6 +488,9 @@ class TritonPythonModel:
         transcript_dict = {}
         transcript_to_pos = {}
         responses = [None for _ in range(len(requests))]
+        print('-----')
+        print('Número de requisições: ', len(requests))
+        print('-----')
         for pos, request in enumerate(requests):
             try:
                 input_text_tensor = pb_utils.get_input_tensor_by_name(request, "PROMPT")
@@ -496,7 +505,10 @@ class TritonPythonModel:
                 if not labels_str in transcript_dict:
                     transcript_dict[labels_str] = []
                 transcript_dict[labels_str].append(transcript)
-                transcript_to_pos[transcript] = pos
+                if transcript in transcript_to_pos:
+                    transcript_to_pos[transcript].append(pos)
+                else:
+                    transcript_to_pos[transcript] = [pos]
             except Exception as e:
                 print(f"Erro ao processar request {pos}: {str(e)}")
                 print(e)
@@ -510,17 +522,16 @@ class TritonPythonModel:
                 d2_per_transcript = req_duration2 / len(transcripts)
                 
                 for transcript, infer in zip(transcripts, infers):
-                    token_generator_input = self.word_splitter.splitter(transcript)
-                    n_input_tokens = len(list(token_generator_input))
+                    n_input_tokens = len(transcript.split())
                     output_str = json.dumps(infer, ensure_ascii=False)
-                    token_generator_output = self.word_splitter.splitter(output_str)
-                    n_output_tokens = len(list(token_generator_output))
-                    pos = transcript_to_pos[transcript]
-                    results_correct_order[pos] = {'ENTITIES_JSON_RAW': infer,
-                        'META_INFO_RAW': {
-                            'processing_time': d1_per_transcript + d2_per_transcript,
-                            'no_gpu_time': 0,
-                            "input_tokens": n_input_tokens,
+                    n_output_tokens = len(output_str.split())
+                    positions = transcript_to_pos[transcript]
+                    for pos in positions:
+                        results_correct_order[pos] = {'ENTITIES_JSON_RAW': infer,
+                            'META_INFO_RAW': {
+                                'processing_time': d1_per_transcript + d2_per_transcript,
+                                'no_gpu_time': 0,
+                                "input_tokens": n_input_tokens,
                             "output_tokens": n_output_tokens,
                             "model_name": "gliner_gliclass"
                         } 
@@ -534,16 +545,26 @@ class TritonPythonModel:
                 print('Erro', file=sys.stderr)
                 print(e, file=sys.stderr)
                 for transcript, infer in zip(transcripts, infers):
-                    pos = transcript_to_pos[transcript]
-                    error_response = pb_utils.InferenceResponse(
-                        output_tensors=[], error=pb_utils.TritonError(str(e))
-                    )
-                    responses[pos] = error_response
+                    positions = transcript_to_pos[transcript]
+                    for pos in positions:
+                        error_response = pb_utils.InferenceResponse(
+                            output_tensors=[], error=pb_utils.TritonError(str(e))
+                        )
+                        responses[pos] = error_response
+
+                quit(1)
+
+        #Look for failed requests:
+        for pos, result in enumerate(results_correct_order):
+            if 'META_INFO_RAW' not in result:
+                print(f"Request {pos} failed: {result}", file=sys.stderr)
+                quit(1)
                     
 
         infer_time_sum = 0.0
         for result in results_correct_order:
-            infer_time_sum += result['d1'] + result['d2']
+            if 'META_INFO_RAW' in result:
+                infer_time_sum += result['META_INFO_RAW']['processing_time']
         
         all_end = time.time()
         all_time = all_end - all_start
@@ -551,7 +572,7 @@ class TritonPythonModel:
         cpu_time_by_request = (all_time - infer_time_sum) / len(results_correct_order)
 
         for pos, result in enumerate(results_correct_order):
-            if responses[pos] is None:
+            if responses[pos] is not None:
                 continue
 
             result['META_INFO_RAW']['no_gpu_time'] = cpu_time_by_request

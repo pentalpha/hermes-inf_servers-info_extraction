@@ -36,8 +36,8 @@ output [
 # --- ADICIONE ISSO ---
 # Habilita o batching dinâmico
 dynamic_batching {
-  preferred_batch_size: [ 2, 4, 8 ]
-  max_queue_delay_microseconds: 5000 # Espera 5ms por mais requests
+  preferred_batch_size: [ 4, 8 ]
+  max_queue_delay_microseconds: 200000 # Espera 200ms por mais requests, em segundos são 0.2s
 }
 
 # Informa ao Triton para rodar umaS instâncias do modelo na GPU

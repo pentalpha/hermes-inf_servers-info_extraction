@@ -10,7 +10,6 @@ from gliner import GLiNER
 from gliner.data_processing.tokenizer import WordsSplitter
 from transformers import AutoTokenizer, pipeline
 from tqdm import tqdm
-import torch
 
 #MAX_TOKENS = 128
 #MAX_TOKENS = 384
@@ -35,6 +34,19 @@ def load_gliner_cuda(model_name_str):
         print('Loaded GLiNER model')
     except Exception as e:
         print(f"Error loading GLiNER model with CUDA: {e}")
+        raise(e)
+    
+    return gliner_large_model, word_splitter
+
+def load_gliner_cpu(model_name_str):
+    word_splitter_name = 'spacy'
+    word_splitter = WordsSplitter(splitter_type=word_splitter_name)
+    
+    try:
+        gliner_large_model = GLiNER.from_pretrained(model_name_str).to('cpu')
+        print('Loaded GLiNER model')
+    except Exception as e:
+        print(f"Error loading GLiNER model with CPU: {e}")
         raise(e)
     
     return gliner_large_model, word_splitter
@@ -150,17 +162,25 @@ class TritonPythonModel:
         else:
             self.clf_model_id = "knowledgator/gliclass-large-v3.0"
 
+        self.cuda_mode = True
+        if "use_cuda" in args:
+            self.cuda_mode = args["use_cuda"]
+        device_str = 'cuda:0' if self.cuda_mode else 'cpu'
         #print(f"Carregando modelo {self.model_id}...")
-        self.model, self.word_splitter = load_gliner_cuda(self.model_id)
+        if self.cuda_mode:
+            self.model, self.word_splitter = load_gliner_cuda(self.model_id)
+        else:
+            self.model, self.word_splitter = load_gliner_cpu(self.model_id)
 
         print(f"Carregando modelo {self.clf_model_id}...")
         if "gliclass" in self.clf_model_id:
             from gliclass import GLiClassModel, ZeroShotClassificationPipeline
             clf_model = GLiClassModel.from_pretrained(self.clf_model_id)
             clf_tokenizer = AutoTokenizer.from_pretrained(self.clf_model_id)
+            
             self.clf_pipeline = ZeroShotClassificationPipeline(
                 clf_model, clf_tokenizer, 
-                classification_type='multi-label', device='cuda:0',
+                classification_type='multi-label', device=device_str,
                 progress_bar=False
             )
             self.is_gliclass = True
@@ -168,7 +188,7 @@ class TritonPythonModel:
             self.clf_pipeline = pipeline(
                 "zero-shot-classification",
                 model=self.clf_model_id,
-                device='cuda:0',
+                device=device_str,
                 multi_label=True,
                 trust_remote_code=True
             )
@@ -384,5 +404,7 @@ class TritonPythonModel:
         """
         print("Limpando o modelo...")
         self.model = None
-        torch.cuda.empty_cache()
+        if self.cuda_mode:
+            import torch
+            torch.cuda.empty_cache()
         print("Finalizado.")

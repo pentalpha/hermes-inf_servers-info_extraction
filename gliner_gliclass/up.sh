@@ -10,9 +10,9 @@ mkdir -p $VLLM_CACHE_PATH
 
 docker build -t triton-gliner:gliclass . \
   && docker run --runtime=nvidia --gpus all --shm-size 1G --rm -it \
-  -p 8000:8003 \
-  -p 8001:8004 \
-  -p 8002:8005 \
+  -p 8003:8000 \
+  -p 8004:8001 \
+  -p 8005:8002 \
   -e HF_HOME=/hf-cache \
   -v $MODEL_REPO_PATH:/models \
   -v $HF_CACHE_PATH:/hf-cache \

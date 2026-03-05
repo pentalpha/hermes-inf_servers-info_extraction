@@ -107,7 +107,6 @@ def test_gliner_model(model) -> dict:
 
 if __name__ == "__main__":
     from gliner1_model import TritonPythonModel as TritonPythonModelGliner1
-    import torch
 
     results = []
 
@@ -185,15 +184,20 @@ if __name__ == "__main__":
         #"fastino/gliner2-large-v1"
     ]
 
+    use_cpu_gliner1 = True
+
     for glinerv1_name in glinerv1_names:
-        for gliclass_name in gliclass_names + non_gliclass_clfs:
+        for gliclass_name in gliclass_names:
             comb_name = glinerv1_name + " + " + gliclass_name
+            if use_cpu_gliner1:
+                comb_name += " (CPU)"
             if comb_name in models_calculated_quality:
                 continue
             try:
                 model_gli1 = TritonPythonModelGliner1()
                 model_gli1.initialize(
-                    {"clf_model_id": gliclass_name, "model_id": glinerv1_name}
+                    {"clf_model_id": gliclass_name, "model_id": glinerv1_name, 
+                        "use_cuda": not use_cpu_gliner1}
                 )
 
                 result_dicts = test_gliner_model(model_gli1)
@@ -243,12 +247,16 @@ if __name__ == "__main__":
 
                 del model_gli1
                 gc.collect()
-                torch.cuda.empty_cache()
+                if not use_cpu_gliner1:
+                    import torch
+                    torch.cuda.empty_cache()
             except Exception as e:
                 print(f"Error with model {gliclass_name}: {e}")
                 del model_gli1
                 gc.collect()
-                torch.cuda.empty_cache()
+                if not use_cpu_gliner1:
+                    import torch
+                    torch.cuda.empty_cache()
                 #raise(e)
                 continue
 
@@ -263,7 +271,9 @@ if __name__ == "__main__":
 
         del model_gli2
         gc.collect()
-        torch.cuda.empty_cache()
+        if not use_cpu_gliner1:
+            import torch
+            torch.cuda.empty_cache()
         for col_name, fmax in result_dicts["fmax_per_col"].items():
             print(f"\tFmax para {col_name}: {fmax}")
 
