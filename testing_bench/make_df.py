@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-
+import numpy as np
 
 if __name__ == "__main__":
     results_files = sys.argv[1:]
@@ -152,8 +152,11 @@ if __name__ == "__main__":
             row["total_cost"] = cost
             if samples > 0:
                 row["cost_per_transcript"] = cost / samples
+                row["seconds_per_transcript"] = gpu_seconds / samples
             else:
-                row["cost_per_transcript"] = 0
+                row["cost_per_transcript"] = np.inf
+                row["seconds_per_transcript"] = np.inf
+
 
             row["mean_quality"] = (row["mean_fmax"] + row["mean_jw_sim"]) / 2
 
@@ -189,8 +192,17 @@ if __name__ == "__main__":
     df["Qualidade Classificação"] = df["mean_fmax"] * df["success_rate"]
     df["Qualidade Reconhecimento de Entidades"] = df["mean_jw_sim"] * df["success_rate"]
 
+    #pdp Power–delay product
+    df["log_avg_runtime"] = np.log(df["total_runtime"]+1)  / max_samples
+    #df["log_cost"] = np.log(df["total_cost"])
+    df["Power–delay product"] = (df["seconds_per_transcript"] * df["cost_per_transcript"])
+
+    df["Power–delay product norm."] = 1 - (df["Power–delay product"] / df["Power–delay product"].max())
+
+    df["Custo-Benefício"] = (df["Qualidade Geral"]*5 + df["Power–delay product norm."]*5) / 10
+
     #sort again
-    df = df.sort_values(by="Qualidade Geral", ascending=False)
+    df = df.sort_values(by="Custo-Benefício", ascending=False)
 
     # Ensure output directory exists
     output_path = "results/df.csv"
@@ -203,10 +215,13 @@ if __name__ == "__main__":
     df.to_excel(excel_output, index=False)
     print(f"Saved dataframe to {excel_output}")
 
-    df_simples = df[["ner_model", "classification_model", "Qualidade Geral", 
+    df_simples = df[["ner_model", "classification_model", "Custo-Benefício", "Qualidade Geral", 
         "Qualidade Classificação", 
-        "Qualidade Reconhecimento de Entidades", "total_cost", "cost_per_transcript",
-        "success_rate", "total_runtime"]]
+        "Qualidade Reconhecimento de Entidades",
+        "Power–delay product", 
+        "total_cost", "cost_per_transcript",
+        "success_rate", 
+        "seconds_per_transcript", "total_runtime"]]
 
     df_simples_path = output_path.replace(".csv", "_simples.xlsx")
     df_simples.to_excel(df_simples_path, index=False)
