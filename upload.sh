@@ -1,6 +1,7 @@
 
 FROM="./"
-TO="hermes-ner-b.southamerica-east1-a.poc-mj-474517:/home/pita/triton-info-extraction"
+#TO="hermes-ner-b.southamerica-east1-a.poc-mj-474517:/home/pita/triton-info-extraction"
+TO="hermes-interpretation-vscode:/home/pita/triton-info-extraction"
 
 # Padrões a ignorar
 EXCLUDES=(
