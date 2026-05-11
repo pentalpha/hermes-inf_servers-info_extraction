@@ -1,3 +1,4 @@
+vm_scripts/*/*.sh
 *_cache
 *.pyc
 *.err

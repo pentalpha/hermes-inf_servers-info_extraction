@@ -13,7 +13,7 @@ sudo docker pull vllm/vllm-openai:v0.15.1 && \
     --ipc=host \
     vllm/vllm-openai:v0.15.1 \
     --model $model_name \
-    --max-model-len 6500 \
-    --max-num-seqs 12 \
-    --gpu-memory-utilization 0.85
+    --max-model-len 8000 \
+    --max-num-seqs 16 \
+    --gpu-memory-utilization 0.95
     
