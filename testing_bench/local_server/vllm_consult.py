@@ -10,10 +10,7 @@ from local_server.ollama_consult import (
     prompt_a,
 )
 
-vllm_client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="EMPTY"
-)
+vllm_client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
 
 
 def vllm_interpret_call_transcript(transcript: str, fmt_class, model_name: str) -> dict:
@@ -26,45 +23,45 @@ def vllm_interpret_call_transcript(transcript: str, fmt_class, model_name: str) 
     Returns:
         dict: A dictionary containing the extracted information.
     """
-    prompt = prompt_a.replace('<transcript_placeholder>', transcript)
+    prompt = prompt_a.replace("<transcript_placeholder>", transcript)
     response_meta = {}
     result = None
     fmd_json = fmt_class.model_json_schema()
-    prompt = prompt.replace('<template_placeholder>\n', json.dumps(fmd_json, ensure_ascii=False))
+    prompt = prompt.replace(
+        "<template_placeholder>\n", json.dumps(fmd_json, ensure_ascii=False)
+    )
     payload_extra = {
         "chat_template_kwargs": {
             "template": json.dumps(fmt_class.model_json_schema()),
             # You can add few-shot examples here if needed
-            "examples": [] 
+            "examples": [],
         }
     }
 
-    messages = [
-        {"role": "user", "content": prompt}
-    ]
+    messages = [{"role": "user", "content": prompt}]
 
     max_retries = 2
-    
+
     for attempt in range(1, max_retries + 1):
         start_time = time.time()
         try:
-            
+
             response = vllm_client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                #enable_thinking=False,
+                # enable_thinking=False,
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
                         "name": "dados_ocorrencia",
-                        "schema": fmt_class.model_json_schema()
+                        "schema": fmt_class.model_json_schema(),
                     },
                 },
-                temperature=0,           # Low temp for extraction
+                temperature=0,  # Low temp for extraction
                 timeout=16,
-                extra_body={'enable_thinking': False}
+                extra_body={"enable_thinking": False},
             )
-            
+
             end_time = time.time()
             latency = end_time - start_time
 
@@ -72,14 +69,17 @@ def vllm_interpret_call_transcript(transcript: str, fmt_class, model_name: str) 
             usage = response.usage
             input_tokens = usage.prompt_tokens
             output_tokens = usage.completion_tokens
-            
+
             # 2. Parse Content (The model returns a JSON string)
             content_str = response.choices[0].message.content
             try:
                 recognized_entities = json.loads(content_str)
             except json.JSONDecodeError:
                 # Fallback if model outputs markdown or bad JSON
-                recognized_entities = {"error": "Failed to parse JSON", "raw_content": content_str}
+                recognized_entities = {
+                    "error": "Failed to parse JSON",
+                    "raw_content": content_str,
+                }
 
             return recognized_entities, input_tokens, output_tokens, latency
 
@@ -91,11 +91,10 @@ def vllm_interpret_call_transcript(transcript: str, fmt_class, model_name: str) 
             # Immediate fail for non-network errors (e.g., bad request)
             raise e
 
-def consult_vllm_emergency(transcript: str, model_name: str) -> dict:
-    response_dict, input_tokens, output_tokens, latency = vllm_interpret_call_transcript(
-        transcript, InformacoesOcorrencia, model_name)
+
+def process_vllm_response(response_dict, input_tokens, output_tokens, latency):
     entities = {}
-    #print(json.dumps(response_dict, indent=4, ensure_ascii=False))
+    # print(json.dumps(response_dict, indent=4, ensure_ascii=False))
     for clf_name in question_mapping.keys():
         clf_val = response_dict.get(clf_name, None)
         if clf_val is None:
@@ -119,10 +118,10 @@ def consult_vllm_emergency(transcript: str, model_name: str) -> dict:
     }
 
     for field_name, values in response_dict.items():
-        if field_name == 'detalhes_gravidade_ocorrencia':
+        if field_name == "detalhes_gravidade_ocorrencia":
             continue
         if field_name not in entity_field_mapping:
-            #print(f"Field {field_name} not in entity_field_mapping")
+            # print(f"Field {field_name} not in entity_field_mapping")
             continue
         json_key = entity_field_mapping[field_name]
         entities[json_key] = [(str(item), 1.0) for item in values]
@@ -140,10 +139,21 @@ def consult_vllm_emergency(transcript: str, model_name: str) -> dict:
 
     return result_data
 
-if __name__ == '__main__':
-    #Run an example
-    model_name = sys.argv[1] # or CohereLabs/tiny-aya-global
-    transcript_example = '''
+
+def consult_vllm_emergency(transcript: str, model_name: str) -> dict:
+    response_dict, input_tokens, output_tokens, latency = (
+        vllm_interpret_call_transcript(transcript, InformacoesOcorrencia, model_name)
+    )
+    result_data = process_vllm_response(
+        response_dict, input_tokens, output_tokens, latency
+    )
+    return result_data
+
+
+if __name__ == "__main__":
+    # Run an example
+    model_name = sys.argv[1]  # or CohereLabs/tiny-aya-global
+    transcript_example = """
     Solicitante: é dos bombeiros? Minha casa está pegando fogo!
     Atendente: Sim, é bombeiros. Como está a situação?
     Solicitante: Minha casa está pegando fogo!
@@ -154,7 +164,7 @@ if __name__ == '__main__':
     Atendente: Ok, Joana.
     Eu também estou pegando fogo! Vou desmaiar
     
-    '''
+    """
 
     response_dict = consult_vllm_emergency(transcript_example, model_name)
 

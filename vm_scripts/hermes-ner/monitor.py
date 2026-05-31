@@ -24,7 +24,7 @@ def gpu():
         "gpu_utilization_percent": util,
         "vram_used_mb": used,
         "vram_total_mb": total,
-	"cpu_usage_percent": cpu_percent,
+	    "cpu_usage_percent": cpu_percent,
         "ram_used_bytes": mem_info.used,
         "ram_total_bytes": mem_info.total,
     })
