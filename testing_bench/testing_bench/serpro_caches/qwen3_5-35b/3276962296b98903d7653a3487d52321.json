@@ -1,0 +1,48 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 1.0,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.0,
+        "Feridos Com Risco de Morte ?": 0.75,
+        "Risco De Tumulto ?": 0.0,
+        "Lei Maria da Penha ?": 0.0,
+        "rua_ou_logradouro": [
+            [
+                "Rua Maximiano Brandao",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "Qd-174",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "perto do TeodoroStudio",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "Bryan da Cruz",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Bryan da Cruz",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1221,
+    "output_tokens": 239,
+    "latency": 2.9751501083374023,
+    "failures": []
+}

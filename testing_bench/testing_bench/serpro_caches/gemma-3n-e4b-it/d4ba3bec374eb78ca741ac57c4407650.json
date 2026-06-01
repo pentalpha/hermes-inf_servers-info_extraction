@@ -1,0 +1,48 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.85,
+        "Autor Do Fato No Local ?": 0.85,
+        "Autor Do Fato Armado ?": 0.1,
+        "Feridos Com Risco de Morte ?": 0.1,
+        "Risco De Tumulto ?": 0.1,
+        "Lei Maria da Penha ?": 0.1,
+        "rua_ou_logradouro": [
+            [
+                "Avenida Mate Laranjeira",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "1000",
+                1.0
+            ]
+        ],
+        "complemento": [
+            [
+                "loja J",
+                1.0
+            ]
+        ],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Dymis Confec\u00e7\u00f5es",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [],
+        "pessoa": [
+            [
+                "Ele",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1319,
+    "output_tokens": 179,
+    "latency": 5.816853761672974,
+    "failures": []
+}

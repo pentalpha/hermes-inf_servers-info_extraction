@@ -1,0 +1,43 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 1.0,
+        "Autor Do Fato No Local ?": 1.0,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.65,
+        "Risco De Tumulto ?": 0.65,
+        "Lei Maria da Penha ?": 0.5,
+        "rua_ou_logradouro": [
+            [
+                "Rua Osvaldo Cruz",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "291",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Lanazan Restaurante",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "Ana Clara",
+                1.0
+            ]
+        ],
+        "pessoa": [],
+        "street_number": []
+    },
+    "input_tokens": 1369,
+    "output_tokens": 185,
+    "latency": 6.932976245880127,
+    "failures": []
+}

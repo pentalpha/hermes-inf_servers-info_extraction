@@ -1,0 +1,48 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.85,
+        "Autor Do Fato No Local ?": 0.85,
+        "Autor Do Fato Armado ?": 0.1,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.65,
+        "Lei Maria da Penha ?": 0.1,
+        "rua_ou_logradouro": [
+            [
+                "Rua Maximiano Brandao",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "34",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Loja do Seu Jo\u00e3o",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "Esther Campos",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Esther Campos",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1468,
+    "output_tokens": 179,
+    "latency": 5.9145941734313965,
+    "failures": []
+}

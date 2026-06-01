@@ -1,0 +1,48 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.85,
+        "Autor Do Fato No Local ?": 0.85,
+        "Autor Do Fato Armado ?": 0.1,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.1,
+        "Lei Maria da Penha ?": 0.7,
+        "rua_ou_logradouro": [
+            [
+                "Avenida S\u00e3o Luiz",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "632",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "\u00f3tica Orient",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "senhorita",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "filho",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1358,
+    "output_tokens": 176,
+    "latency": 5.8349316120147705,
+    "failures": []
+}

@@ -1,0 +1,38 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 1.0,
+        "Autor Do Fato No Local ?": 1.0,
+        "Autor Do Fato Armado ?": 0.1,
+        "Feridos Com Risco de Morte ?": 0.75,
+        "Risco De Tumulto ?": 0.1,
+        "Lei Maria da Penha ?": 0.5,
+        "rua_ou_logradouro": [
+            [
+                "Avenida Vit\u00f3ria R\u00e9gia",
+                1.0
+            ]
+        ],
+        "numero": [],
+        "complemento": [],
+        "bairro": [
+            [
+                "Flores",
+                1.0
+            ]
+        ],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "pr\u00f3ximo ao consult\u00f3rio da doutora Jussara Alves",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [],
+        "pessoa": [],
+        "street_number": []
+    },
+    "input_tokens": 1277,
+    "output_tokens": 399,
+    "latency": 5.392811059951782,
+    "failures": []
+}

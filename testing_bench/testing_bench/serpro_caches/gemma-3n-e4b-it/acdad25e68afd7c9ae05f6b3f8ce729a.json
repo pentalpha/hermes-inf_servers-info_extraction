@@ -1,0 +1,52 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.1,
+        "Autor Do Fato No Local ?": 0.85,
+        "Autor Do Fato Armado ?": 0.1,
+        "Feridos Com Risco de Morte ?": 0.65,
+        "Risco De Tumulto ?": 0.65,
+        "Lei Maria da Penha ?": 0.1,
+        "rua_ou_logradouro": [
+            [
+                "Rua Assun\u00e7\u00e3o",
+                1.0
+            ]
+        ],
+        "numero": [],
+        "complemento": [],
+        "bairro": [
+            [
+                "Itapaci",
+                1.0
+            ]
+        ],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Igreja",
+                1.0
+            ],
+            [
+                "Aranha Advogado",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "Levi",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Levi",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1294,
+    "output_tokens": 244,
+    "latency": 8.087573766708374,
+    "failures": []
+}

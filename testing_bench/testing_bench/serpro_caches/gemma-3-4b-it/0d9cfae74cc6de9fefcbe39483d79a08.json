@@ -1,0 +1,36 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.5,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.5,
+        "Lei Maria da Penha ?": 0.5,
+        "nome_do_solicitante": [
+            [
+                "Ana Clara",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Ana Clara",
+                1.0
+            ],
+            [
+                "garoto (atacado)",
+                1.0
+            ]
+        ],
+        "rua_ou_logradouro": [],
+        "street_number": [],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": []
+    },
+    "input_tokens": 1342,
+    "output_tokens": 31,
+    "latency": 3.234571933746338,
+    "failures": []
+}

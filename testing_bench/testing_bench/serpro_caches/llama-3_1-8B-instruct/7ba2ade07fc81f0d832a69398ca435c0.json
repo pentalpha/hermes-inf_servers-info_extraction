@@ -1,0 +1,52 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.5,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.5,
+        "Lei Maria da Penha ?": 0.5,
+        "nome_do_solicitante": [
+            [
+                "Gael",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Gael",
+                1.0
+            ],
+            [
+                "tio Robson",
+                1.0
+            ],
+            [
+                "Thor",
+                1.0
+            ],
+            [
+                "m\u00e3e de Gael",
+                1.0
+            ],
+            [
+                "policial da pol\u00edcia militar",
+                1.0
+            ],
+            [
+                "v\u00edtima (Thor)",
+                1.0
+            ]
+        ],
+        "rua_ou_logradouro": [],
+        "street_number": [],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": []
+    },
+    "input_tokens": 1441,
+    "output_tokens": 55,
+    "latency": 1.8504750728607178,
+    "failures": []
+}

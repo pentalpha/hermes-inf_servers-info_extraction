@@ -365,6 +365,7 @@ def find_max_jw_sim(pred_values, true_values, field_name: str = None):
 
     return fmax, jw_sim_max, recall, precision
 
+
 answer_to_value = {
     "Certamente Sim": 1.0,
     "Sim": 0.95,
@@ -375,7 +376,8 @@ answer_to_value = {
     "Certamente Não": 0.0,
 }
 
-def get_testing_inputs():
+
+def get_testing_inputs(usage_perc=USE_PERC):
     text1 = """Preciso de uma ambulância rápido, tem uma pessoa caída na Rua das Flores, número 123, perto da padaria. 
         Ela está inconsciente. Meu nome é Maria Oliveira. Meu telefone é 99999-8888, moro na cidade de São Paulo. """
     text2 = """Preciso de uma ambulância rápido, tem uma pessoa caída na Rua das Flores, número 123, 
@@ -576,7 +578,10 @@ def get_testing_inputs():
         },
     }
 
-    clfs_multi = {label: {**details, "answers": list(answer_to_value.keys())} for label, details in clfs_bool.items()}
+    clfs_multi = {
+        label: {**details, "answers": list(answer_to_value.keys())}
+        for label, details in clfs_bool.items()
+    }
 
     clfs_named = {
         fatoOcorrendoNesteMomento: {
@@ -630,7 +635,7 @@ def get_testing_inputs():
         "boolean": {"natureza_da_ocorrencia": clfs_bool},
     }
 
-    rac_perc = 1.0 - USE_PERC
+    rac_perc = 1.0 - usage_perc
     # set default seed:
     np.random.seed(1337)
     rac_indexes = np.random.choice(
@@ -674,4 +679,3 @@ def calc_metadata(input_strs, output_strs, gpu_usage_secs):
     input_tokens = sum([len(s.split()) for s in input_strs])
     output_tokens = sum([len(s.split()) for s in output_strs])
     return input_tokens / gpu_usage_secs, output_tokens / gpu_usage_secs
-

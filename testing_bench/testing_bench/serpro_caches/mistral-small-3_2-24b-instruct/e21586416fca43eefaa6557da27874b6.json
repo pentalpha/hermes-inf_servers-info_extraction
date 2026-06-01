@@ -1,0 +1,38 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 1.0,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.85,
+        "Risco De Tumulto ?": 0.35,
+        "Lei Maria da Penha ?": 0.5,
+        "rua_ou_logradouro": [
+            [
+                "Rua Ot\u00e1vio Rafael Gon\u00e7alves",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "331",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Casa de Carnes S\u00e3o Jos\u00e9",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [],
+        "pessoa": [],
+        "street_number": []
+    },
+    "input_tokens": 1256,
+    "output_tokens": 183,
+    "latency": 4.717823266983032,
+    "failures": []
+}

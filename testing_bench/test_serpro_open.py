@@ -1,15 +1,19 @@
-from pydantic import BaseModel
 from enum import Enum
-import requests
+from typing import Optional
 import json
 import time
 import os
-from dotenv import load_dotenv
 import sys
 import signal
 import hashlib
 import re
 from pathlib import Path
+
+from pydantic import BaseModel
+from dotenv import load_dotenv
+import requests
+from tqdm import tqdm
+import numpy as np
 
 from local_server.ollama_consult import (
     InformacoesOcorrencia,
@@ -24,6 +28,7 @@ from testing import (
     get_testing_inputs,
     find_fmax_per_col_parallel,
     find_max_jw_sim,
+    USE_PERC,
 )
 
 load_dotenv()
@@ -133,21 +138,33 @@ def request_serpro_generic(
         "Authorization": "Bearer " + access_token,
     }
 
+    max_tokens_reached_flags = [
+        "'finish_reason': 'length'",
+        '"finish_reason": "length"',
+        "'finish_reason': 'max_tokens'",
+        '"finish_reason": "max_tokens"',
+    ]
+
     attempts_left = 3
     failures = 0
     req_latency = 0.0
     response_json = None
     reasonings = []
+    failure_texts = []
     jsons = []
     while attempts_left > 0:
         try:
             req_start = time.time()
-            response = requests.request("POST", base_url, headers=headers, data=payload)
+            response = requests.request(
+                "POST", base_url, headers=headers, data=payload, timeout=16
+            )
             req_end = time.time()
             req_latency += req_end - req_start
             response_json = json.loads(response.text)
             for c in response_json["choices"]:
                 raw = c["message"]["content"]
+                if any([f in raw for f in max_tokens_reached_flags]):
+                    raise Exception("Response truncated: " + raw)
                 if raw is not None:
                     try:
                         jsons.append(smart_json_loads(raw, verbose=verbose))
@@ -169,6 +186,7 @@ def request_serpro_generic(
                 print(f"Attempt failed ({attempts_left}). Retrying...", file=sys.stderr)
                 print(e, file=sys.stderr)
                 print("full raw:", response_json, file=sys.stderr)
+            failure_texts.append(str(e))
             failures += 1
             attempts_left -= 1
             continue
@@ -184,7 +202,7 @@ def request_serpro_generic(
                 "completion_tokens": compl_tokens,
                 "total_tokens": total_tokens,
                 "request_time": req_latency / (failures + 1),
-                "failures": failures,
+                "failures": failure_texts,
             }
             return answer, meta
     # failure reached
@@ -193,7 +211,7 @@ def request_serpro_generic(
         "completion_tokens": None,
         "total_tokens": None,
         "request_time": req_latency / failures,
-        "failures": failures,
+        "failures": failure_texts,
     }
     return None, meta
 
@@ -293,15 +311,18 @@ class SerproAPIExtract:
         except Exception as e:
             print(f"Warning: Failed to save cache: {e}", file=sys.stderr)
 
-    def extract(self, transcript: str, use_cache=True):
+    def extract(self, transcript: str, use_cache=True, verbose=False):
         if use_cache:
             cached = self.get_cached_response(transcript)
             if cached:
+                if verbose:
+                    print("Success: using cached response")
                 return (
                     cached["entities"],
-                    cached.get("input_tokens", 0),
-                    cached.get("output_tokens", 0),
-                    cached.get("latency", 0.0),
+                    cached.get("prompt_tokens", 0),
+                    cached.get("completion_tokens", 0),
+                    cached.get("request_time", 0.0),
+                    cached.get("failures", []),
                 )
 
         prompt = prompt_a.replace("<transcript_placeholder>", transcript)
@@ -316,21 +337,38 @@ class SerproAPIExtract:
             self.access_token,
             prompt,
             InformacoesOcorrencia,
-            max_tokens=5000,
+            max_tokens=2600,
+            verbose=verbose,
         )
 
-        result_data = process_vllm_response(
-            answer,
-            meta["prompt_tokens"],
-            meta["completion_tokens"],
-            meta["request_time"],
-        )
-        if use_cache:
-            self.save_cached_response(transcript, result_data)
-        return result_data
+        if answer is not None:
+            result_data = process_vllm_response(
+                answer,
+                meta["prompt_tokens"],
+                meta["completion_tokens"],
+                meta["request_time"],
+            )
+            result_data["failures"] = meta["failures"]
+            if use_cache:
+                self.save_cached_response(transcript, result_data)
+                if verbose:
+                    print("Success: saved")
+            return (
+                result_data,
+                meta["prompt_tokens"],
+                meta["completion_tokens"],
+                meta["request_time"],
+                meta["failures"],
+            )
+        else:
+            if verbose:
+                print("Failure: not saved")
+            return (None, None, None, meta["request_time"], meta["failures"])
 
 
-def test_local_model(model_name: str):
+def test_local_model(
+    model_name: str, testing_perc: float, use_cache=True, verbose=False
+):
     (
         ml_categories,
         all_texts,
@@ -338,14 +376,210 @@ def test_local_model(model_name: str):
         clfs_true,
         full_schema_dict,
         entities_true,
-    ) = get_testing_inputs()
+    ) = get_testing_inputs(usage_perc=testing_perc)
 
-    pass
+    entity_names = list(full_schema_dict["entities"].keys())
+
+    # Identify non-redundant names for metrics
+    redundancies = {
+        "rua": "rua_ou_logradouro",
+        "municipio": "cidade",
+        "street_number": "numero",
+        "number": "numero",
+        "endereço_complemento": "complemento",
+    }
+
+    # Setup extractor
+    try:
+        extractor = SerproAPIExtract(model=model_name)
+    except Exception as e:
+        print(f"Failed to initialize extractor for {model_name}: {e}")
+        return {}
+
+    # Lists to store results
+    clfs_scores = []
+    entities_found = []
+    gpu_usage_total = 0.0
+    p_tokens_total = 0
+    c_tokens_total = 0
+    start_time = time.time()
+    n_failures = 0
+    results = []
+    success_idx = []
+
+    bar = tqdm(total=len(all_texts))
+
+    for idx, transcript in enumerate(all_texts):
+        res = extractor.extract(transcript, use_cache=use_cache, verbose=verbose)
+        print(res)
+        n_failures += len(res[4])
+        if res[0] is not None:
+            results.append(res)
+            success_idx.append(idx)
+        bar.update(1)
+
+    if len(results) == 0:
+        print(f"No successful inferences for {model_name}. Skipping metrics.")
+        return {}
+
+    n_requests = len(results) + n_failures
+    failures_perc = n_failures / n_requests
+
+    failure_texts = []
+
+    for res in results:
+        final_json, p_tokens, c_tokens, latency, failures = res
+        failure_texts.extend(failures)
+        p_tokens_total += p_tokens
+        c_tokens_total += c_tokens
+        gpu_usage_total += latency
+
+        # Flatten scores for classification
+        scores_line = []
+        for clf in clfnames:
+            scores_line.append(final_json.get(clf, 0.0))
+
+        # Flatten entities
+        entities_line = {}
+        for name in entity_names:
+            val = final_json.get(name, [])
+            entities_line[name] = val
+
+        clfs_scores.append(scores_line)
+        entities_found.append(entities_line)
+
+    clfs_true_no_err = np.asarray([clfs_true[i] for i in success_idx])
+
+    if gpu_usage_total > 0:
+        tokens_per_second_in = p_tokens_total / gpu_usage_total
+        tokens_per_second_out = c_tokens_total / gpu_usage_total
+    else:
+        tokens_per_second_in = 0
+        tokens_per_second_out = 0
+
+    fmax_per_col, recalls_at_good_precisions, recalls, precisions, best_thresholds = (
+        find_fmax_per_col_parallel(
+            np.array(clfs_scores),
+            clfs_true_no_err,
+            clfnames,
+            n_jobs=4,
+        )
+    )
+
+    non_redundant_entity_names = [
+        name for name in entity_names if name not in redundancies.keys()
+    ]
+
+    similarities_per_entity = {}
+
+    for entity_name in non_redundant_entity_names:
+        pred_values = [
+            entities_found[i].get(entity_name, []) for i in range(len(entities_found))
+        ]
+
+        true_values = [entities_true[i].get(entity_name, []) for i in success_idx]
+
+        fmax, jw_sim_max, recall, precision = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name
+        )
+        similarities_per_entity[entity_name] = jw_sim_max
+        recalls[entity_name] = recall
+        precisions[entity_name] = precision
+
+    return {
+        "fmax_per_col": fmax_per_col,
+        "similarities_per_entity": similarities_per_entity,
+        "recalls_at_good_precisions": recalls_at_good_precisions,
+        "recalls": recalls,
+        "precisions": precisions,
+        "best_thresholds": best_thresholds,
+        "meta": {
+            "tokens_per_second_in": tokens_per_second_in,
+            "tokens_per_second_out": tokens_per_second_out,
+            "latency_sum": gpu_usage_total,
+            "gpu_seconds": gpu_usage_total,
+            "samples": len(success_idx),
+            "tokens_total_in": p_tokens_total,
+            "tokens_total_out": c_tokens_total,
+            "failures": n_failures,
+            "failures_perc": failures_perc,
+            "n_requests": n_requests,
+            "failure_texts": failure_texts,
+        },
+    }
 
 
 if __name__ == "__main__":
-    access_token = get_serpro_token()
+    testing_perc = USE_PERC
+    if len(sys.argv) > 1:
+        testing_perc = float(sys.argv[1])
+    results_path = "results/serpro_open_results.json"
+    """access_token = get_serpro_token()
     print("Got temp access token")
-    structured_models = serpro_initial_model_tests(access_token)
+    structured_models = serpro_initial_model_tests(access_token)"""
+    structured_models = [
+        {"name": "llama-3.1-8B-instruct", "latency": 0.7867984771728516},
+        {"name": "qwen3.5-35b", "latency": 0.8253350257873535},
+        {"name": "mistral-small-3.2-24b-instruct", "latency": 1.0027306079864502},
+        {"name": "magistral-small", "latency": 1.075148582458496},
+        {"name": "gemma-3n-e4b-it", "latency": 1.1260874271392822},
+        {"name": "gpt-oss-120b", "latency": 1.3318655490875244},
+        {"name": "gemma-3-4b-it", "latency": 3.1739470958709717},
+        {"name": "deepseek-r1-distill-qwen-14b", "latency": 7.509040117263794},
+    ]
 
     print("Structured llms found: ", structured_models)
+
+    models_to_test = [d["name"] for d in structured_models]
+
+    model_results = []
+
+    for model_name in models_to_test:
+
+        print(f"=== Testing {model_name} ===")
+
+        try:
+            metrics = test_local_model(
+                model_name, testing_perc, use_cache=True, verbose=True
+            )
+            if not metrics:
+                print(f"Skipping result save for {model_name} due to lack of metrics.")
+                continue
+
+            mean_fmax = np.mean(list(metrics["fmax_per_col"].values()))
+            mean_jw_sim = np.mean(list(metrics["similarities_per_entity"].values()))
+            mean_recall = np.mean(list(metrics["recalls"].values()))
+            mean_precision = np.mean(list(metrics["precisions"].values()))
+
+            print(f"\tMean Fmax: {mean_fmax}")
+            print(f"\tMean JW Sim: {mean_jw_sim}")
+            print(f"\tMeta: {metrics['meta']}")
+
+            result_entry = {
+                "model": model_name,
+                "mean_metrics": {
+                    "fmax": mean_fmax,
+                    "jw_sim": mean_jw_sim,
+                    "recall": mean_recall,
+                    "precision": mean_precision,
+                },
+                "meta": metrics["meta"],
+                "fmax": metrics["fmax_per_col"],
+                "jw_sim": metrics["similarities_per_entity"],
+                "recall": metrics["recalls"],
+                "precision": metrics["precisions"],
+                "best_thresholds": metrics["best_thresholds"],
+                "detailed_results": metrics,
+            }
+
+            model_results.append(result_entry)
+
+            # Ensure dir exists
+            os.makedirs(os.path.dirname(results_path), exist_ok=True)
+
+            with open(results_path, "w") as f:
+                json.dump(model_results, f, indent=4)
+
+        except Exception as e:
+            print(f"Failed to test {model_name}: {e}")
+            raise e

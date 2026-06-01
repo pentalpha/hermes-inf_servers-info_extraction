@@ -1,0 +1,52 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.5,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.5,
+        "Lei Maria da Penha ?": 0.5,
+        "nome_do_solicitante": [
+            [
+                "Bruno da Rosa",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "Bruno da Rosa",
+                1.0
+            ],
+            [
+                "Porteiro",
+                1.0
+            ],
+            [
+                "Operador Pol\u00edcia Militar",
+                1.0
+            ],
+            [
+                "Viatura SAMU",
+                1.0
+            ],
+            [
+                "Viatura Pol\u00edcia Militar",
+                1.0
+            ],
+            [
+                "Homem ca\u00eddo (v\u00edtima)",
+                1.0
+            ]
+        ],
+        "rua_ou_logradouro": [],
+        "street_number": [],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": []
+    },
+    "input_tokens": 1398,
+    "output_tokens": 58,
+    "latency": 3.725914716720581,
+    "failures": []
+}

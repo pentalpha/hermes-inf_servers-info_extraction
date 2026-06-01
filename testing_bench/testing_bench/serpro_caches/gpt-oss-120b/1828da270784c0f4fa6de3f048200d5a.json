@@ -1,0 +1,61 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.1,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.1,
+        "Risco De Tumulto ?": 0.1,
+        "Lei Maria da Penha ?": 0.1,
+        "rua_ou_logradouro": [
+            [
+                "Asa Sul",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "308",
+                1.0
+            ]
+        ],
+        "complemento": [
+            [
+                "bloco A",
+                1.0
+            ],
+            [
+                "jardim do bloco A",
+                1.0
+            ]
+        ],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Igrejinha",
+                1.0
+            ],
+            [
+                "cogumelos de cimento",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [
+            [
+                "Bruno da Rosa",
+                1.0
+            ]
+        ],
+        "pessoa": [
+            [
+                "homem ca\u00eddo",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1377,
+    "output_tokens": 422,
+    "latency": 4.9016053676605225,
+    "failures": []
+}

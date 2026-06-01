@@ -16,3 +16,5 @@ testing_bench/testing_bench/gemini_cache/*
 testing_bench/make_df_alt.py
 .env
 testing_bench/.env
+testing_bench/testing_bench/serpro_caches/
+testing_bench/testing_bench/serpro_caches/*

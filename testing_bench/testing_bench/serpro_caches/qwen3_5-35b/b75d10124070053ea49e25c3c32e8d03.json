@@ -1,0 +1,43 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 1.0,
+        "Autor Do Fato No Local ?": 1.0,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.35,
+        "Risco De Tumulto ?": 0.1,
+        "Lei Maria da Penha ?": 1.0,
+        "rua_ou_logradouro": [
+            [
+                "BR-369",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "456",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "Parada Bras\u00edlia",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [],
+        "pessoa": [
+            [
+                "marido",
+                1.0
+            ]
+        ],
+        "street_number": []
+    },
+    "input_tokens": 1390,
+    "output_tokens": 221,
+    "latency": 2.8655247688293457,
+    "failures": []
+}

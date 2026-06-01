@@ -1,0 +1,43 @@
+{
+    "entities": {
+        "Fato Ocorrendo Neste Momento ?": 0.5,
+        "Autor Do Fato No Local ?": 0.5,
+        "Autor Do Fato Armado ?": 0.5,
+        "Feridos Com Risco de Morte ?": 0.5,
+        "Risco De Tumulto ?": 0.5,
+        "Lei Maria da Penha ?": 0.5,
+        "rua_ou_logradouro": [
+            [
+                "Rua Domiciano Peixoto",
+                1.0
+            ]
+        ],
+        "numero": [
+            [
+                "54",
+                1.0
+            ]
+        ],
+        "complemento": [],
+        "bairro": [
+            [
+                "Centro",
+                1.0
+            ]
+        ],
+        "cidade": [],
+        "ponto_de_referencia": [
+            [
+                "onde passa o \u00f4nibus, ali onde tem uma lojinha",
+                1.0
+            ]
+        ],
+        "nome_do_solicitante": [],
+        "pessoa": [],
+        "street_number": []
+    },
+    "input_tokens": 1235,
+    "output_tokens": 275,
+    "latency": 3.534865379333496,
+    "failures": []
+}
