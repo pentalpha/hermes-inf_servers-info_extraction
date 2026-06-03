@@ -23,38 +23,47 @@ from testing import (
 
 from test_gemini import InformacoesOcorrencia, RespostaDeClassificacao
 
-azure_context_lengths = {
-    'gpt-5-nano': 400000
-}
+azure_context_lengths = {"gpt-5-nano": 400000}
+
 
 class AzureExtract:
-    def __init__(self, model: str):
+    def __init__(self, model: str, offline_mode: bool = False):
         self.model = model
-        
-        if 'AZURE_AI_RESOURCE_KEY_'+model in os.environ:
-            self.api_key = os.environ['AZURE_AI_RESOURCE_KEY_'+model]
+
+        if offline_mode:
+            self.api_key = "dummy"
+            self.api_version = "dummy"
+            self.endpoint = None
+            self.client = None
         else:
-            raise ValueError("AZURE_AI_RESOURCE_KEY_"+model+" not found. Please set it in .env or environment variables.")
-        
-        if 'AZURE_AI_RESOURCE_VERSION_'+model in os.environ:
-            self.api_version = os.environ['AZURE_AI_RESOURCE_VERSION_'+model]
-        else:
-            self.api_version = os.environ['AZURE_AI_RESOURCE_VERSION']
-        
-        if 'AZURE_AI_RESOURCE_ENDPOINT_'+model in os.environ:
-            self.endpoint = os.environ['AZURE_AI_RESOURCE_ENDPOINT_'+model]
-        else:
-            self.endpoint = os.environ['AZURE_AI_RESOURCE_ENDPOINT']
-        
-        # Cria o cliente AzureOpenAI. O cliente espera os parâmetros mostrados.
-        #print(self.api_version)
-        #print(self.endpoint)
-        #print(self.model_name)
-        self.client = AzureOpenAI(
-            api_version=self.api_version,
-            azure_endpoint=self.endpoint,
-            api_key=self.api_key,
-        )
+            if "AZURE_AI_RESOURCE_KEY_" + model in os.environ:
+                self.api_key = os.environ["AZURE_AI_RESOURCE_KEY_" + model]
+            else:
+                raise ValueError(
+                    "AZURE_AI_RESOURCE_KEY_"
+                    + model
+                    + " not found. Please set it in .env or environment variables."
+                )
+
+            if "AZURE_AI_RESOURCE_VERSION_" + model in os.environ:
+                self.api_version = os.environ["AZURE_AI_RESOURCE_VERSION_" + model]
+            else:
+                self.api_version = os.environ["AZURE_AI_RESOURCE_VERSION"]
+
+            if "AZURE_AI_RESOURCE_ENDPOINT_" + model in os.environ:
+                self.endpoint = os.environ["AZURE_AI_RESOURCE_ENDPOINT_" + model]
+            else:
+                self.endpoint = os.environ["AZURE_AI_RESOURCE_ENDPOINT"]
+
+            # Cria o cliente AzureOpenAI. O cliente espera os parâmetros mostrados.
+            # print(self.api_version)
+            # print(self.endpoint)
+            # print(self.model_name)
+            self.client = AzureOpenAI(
+                api_version=self.api_version,
+                azure_endpoint=self.endpoint,
+                api_key=self.api_key,
+            )
 
         # Comprimento de contexto estimado para o modelo (usado como referência/internamente).
         self.context_len = azure_context_lengths.get(model, 16000)
@@ -81,9 +90,7 @@ class AzureExtract:
         }
 
         # Cache setup
-        self.cache_dir = Path("testing_bench/azure_cache") / self.safe_model_name(
-            model
-        )
+        self.cache_dir = Path("testing_bench/azure_cache") / self.safe_model_name(model)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def safe_model_name(self, model_name: str) -> str:
@@ -165,19 +172,22 @@ class AzureExtract:
                 cached.get("latency", 0.0),
             )
 
+        if self.client is None:
+            raise ValueError("Client not initialized. Please set offline_mode=False.")
+
         start_time = time.time()
         try:
-            '''response = self.client.responses.parse(   
+            """response = self.client.responses.parse(
                 model=self.model,
                 input=transcript,
                 response_format=InformacoesOcorrencia,
                 reasoning={
                     "effort": "minimal"
                 }
-            )'''
+            )"""
 
             response = self.client.beta.chat.completions.parse(
-                model=self.model, # replace with the model deployment name of your gpt-4o 2024-08-06 deployment
+                model=self.model,  # replace with the model deployment name of your gpt-4o 2024-08-06 deployment
                 messages=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": f"Transcrição: {transcript}"},
@@ -217,6 +227,7 @@ class AzureExtract:
             # Propagate error to let caller handle it (or not)
             raise e
 
+
 def test_azure_model(model_name: str) -> dict:
     (
         ml_categories,
@@ -240,7 +251,7 @@ def test_azure_model(model_name: str) -> dict:
 
     # Setup extractor
     try:
-        extractor = AzureExtract(model=model_name)
+        extractor = AzureExtract(model=model_name, offline_mode=True)
     except Exception as e:
         print(f"Failed to initialize extractor for {model_name}: {e}")
         return {}
@@ -327,6 +338,8 @@ def test_azure_model(model_name: str) -> dict:
     ]
 
     similarities_per_entity = {}
+    similarities_per_entity_simple = {}
+    verbosity_ratios = {}
 
     for entity_name in non_redundant_entity_names:
         pred_values = [
@@ -338,19 +351,27 @@ def test_azure_model(model_name: str) -> dict:
         ]
 
         # Guard against empty lists if needed, but find_max_jw_sim should handle it
-        fmax, jw_sim_max, recall, precision = find_max_jw_sim(
-            pred_values, true_values, field_name=entity_name
+        fmax, jw_sim_max, recall, precision, vr = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name, use_simple=False
         )
         similarities_per_entity[entity_name] = jw_sim_max
         recalls[entity_name] = recall
         precisions[entity_name] = precision
+        verbosity_ratios[entity_name] = vr
+
+        _, jw_sim_max2, _, _, _ = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name, use_simple=True
+        )
+        similarities_per_entity_simple[entity_name] = jw_sim_max2
 
     return {
         "fmax_per_col": fmax_per_col,
         "similarities_per_entity": similarities_per_entity,
+        "similarities_per_entity_simple": similarities_per_entity_simple,
         "recalls_at_good_precisions": recalls_at_good_precisions,
         "recalls": recalls,
         "precisions": precisions,
+        "verbosity_ratios": verbosity_ratios,
         "best_thresholds": best_thresholds,
         "meta": {
             "tokens_per_second_in": tokens_per_second_in,
@@ -362,21 +383,22 @@ def test_azure_model(model_name: str) -> dict:
         },
     }
 
+
 if __name__ == "__main__":
-    results_path = "results/azure_results2.json"
+    results_path = "results/azure_results3.json"
 
     # Models ordered from best quality to lowest quality
     models_to_test = [
         "gpt-5.2-chat",
         "gpt-5-nano",
         "gpt-5-mini",
-        #"DeepSeek-R1-0528",
+        # "DeepSeek-R1-0528",
         "gpt-4.1-nano",
         "o3-mini",
         "gpt-5-chat",
         "gpt-4.1",
         "gpt-4o-mini",
-        "o4-mini"
+        "o4-mini",
     ]
 
     models_to_test = list(reversed(models_to_test))
@@ -406,26 +428,38 @@ if __name__ == "__main__":
 
             mean_fmax = np.mean(list(metrics["fmax_per_col"].values()))
             mean_jw_sim = np.mean(list(metrics["similarities_per_entity"].values()))
+            mean_jw_sim_simple = np.mean(
+                list(metrics["similarities_per_entity_simple"].values())
+            )
             mean_recall = np.mean(list(metrics["recalls"].values()))
             mean_precision = np.mean(list(metrics["precisions"].values()))
+            mean_vr = np.mean(list(metrics["verbosity_ratios"].values()))
 
             print(f"\tMean Fmax: {mean_fmax}")
             print(f"\tMean JW Sim: {mean_jw_sim}")
+            print(f"\tMean JW Sim Simple: {mean_jw_sim_simple}")
+            print(f"\tMean Recall: {mean_recall}")
+            print(f"\tMean Precision: {mean_precision}")
+            print(f"\tMean VR: {mean_vr}")
 
             result_entry = {
                 "model": model_name,
                 "mean_metrics": {
                     "fmax": mean_fmax,
                     "jw_sim": mean_jw_sim,
+                    "jw_sim_simple": mean_jw_sim_simple,
                     "recall": mean_recall,
                     "precision": mean_precision,
+                    "vr": mean_vr,
                 },
                 "meta": metrics["meta"],
                 "fmax": metrics["fmax_per_col"],
                 "jw_sim": metrics["similarities_per_entity"],
+                "jw_sim_simple": metrics["similarities_per_entity_simple"],
                 "recall": metrics["recalls"],
                 "precision": metrics["precisions"],
                 "best_thresholds": metrics["best_thresholds"],
+                "vr": metrics["verbosity_ratios"],
             }
 
             results.append(result_entry)

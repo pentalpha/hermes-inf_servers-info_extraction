@@ -18,3 +18,5 @@ testing_bench/make_df_alt.py
 testing_bench/.env
 testing_bench/testing_bench/serpro_caches/
 testing_bench/testing_bench/serpro_caches/*
+testing_bench/results/custos_e_tokens-extração_de_infor.xlsx
+testing_bench/results/resultados_previos

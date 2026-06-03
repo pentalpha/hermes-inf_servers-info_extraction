@@ -1,7 +1,23 @@
 {
     "gcp_n1_t4": {
-        "dollars_hour_standard": 12.201,
-        "dollars_hour_spot": 7.3
+        "dollars_hour_standard": 0.6,
+        "dollars_hour_spot": 0.31
+    },
+    "gcp_g2_l4": {
+        "dollars_hour_standard": 0.74,
+        "dollars_hour_spot": 0.32
+    },
+    "gcp_g2_2x-l4": {
+        "dollars_hour_standard": 2.001,
+        "dollars_hour_spot": 0.88
+    },
+    "gcp_g2_4x-l4": {
+        "dollars_hour_standard": 4,
+        "dollars_hour_spot": 1.76
+    },
+    "gcp_a2_a100": {
+        "dollars_hour_standard": 3.674,
+        "dollars_hour_spot": 1.8
     },
     "gemini-2.0-flash-lite": {
         "dollars_1m_tokens_in": 0.075,

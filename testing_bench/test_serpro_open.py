@@ -282,9 +282,12 @@ def serpro_initial_model_tests(access_token):
 
 
 class SerproAPIExtract:
-    def __init__(self, model: str):
+    def __init__(self, model: str, offline_mode: bool = False):
         self.model = model
-        self.access_token = get_serpro_token()
+        if not offline_mode:
+            self.access_token = get_serpro_token()
+        else:
+            self.access_token = None
         self.safe_model_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", model)
         self.cache_dir = "testing_bench/serpro_caches/" + self.safe_model_name
         os.makedirs(self.cache_dir, exist_ok=True)
@@ -317,13 +320,30 @@ class SerproAPIExtract:
             if cached:
                 if verbose:
                     print("Success: using cached response")
+                prompt_tokens = cached.get("prompt_tokens", None)
+                if prompt_tokens is None:
+                    prompt_tokens = cached.get("input_tokens", None)
+                completion_tokens = cached.get("completion_tokens", None)
+                if completion_tokens is None:
+                    completion_tokens = cached.get("output_tokens", None)
+                request_time = cached.get("request_time", None)
+                if request_time is None:
+                    request_time = cached.get("latency", None)
+                if "failures" in cached:
+                    if len(cached["failures"]) > 0:
+                        cached["failures"] = cached["failures"][0]
+                else:
+                    cached["failures"] = []
                 return (
                     cached["entities"],
-                    cached.get("prompt_tokens", 0),
-                    cached.get("completion_tokens", 0),
-                    cached.get("request_time", 0.0),
+                    prompt_tokens,
+                    completion_tokens,
+                    request_time,
                     cached.get("failures", []),
                 )
+
+        if self.access_token is None:
+            return (None, None, None, None, ["No access token"])
 
         prompt = prompt_a.replace("<transcript_placeholder>", transcript)
 
@@ -337,9 +357,12 @@ class SerproAPIExtract:
             self.access_token,
             prompt,
             InformacoesOcorrencia,
-            max_tokens=2600,
+            max_tokens=2800,
             verbose=verbose,
         )
+
+        if len(meta["failures"]) > 0:
+            meta["failures"] = meta["failures"][0]
 
         if answer is not None:
             result_data = process_vllm_response(
@@ -391,7 +414,7 @@ def test_local_model(
 
     # Setup extractor
     try:
-        extractor = SerproAPIExtract(model=model_name)
+        extractor = SerproAPIExtract(model=model_name, offline_mode=True)
     except Exception as e:
         print(f"Failed to initialize extractor for {model_name}: {e}")
         return {}
@@ -409,27 +432,32 @@ def test_local_model(
 
     bar = tqdm(total=len(all_texts))
 
+    failure_texts = []
+    n_failures = 0
+
     for idx, transcript in enumerate(all_texts):
         res = extractor.extract(transcript, use_cache=use_cache, verbose=verbose)
-        print(res)
-        n_failures += len(res[4])
+        # print(res)
+        # n_failures += len(res[4])
         if res[0] is not None:
             results.append(res)
             success_idx.append(idx)
+        else:
+            failure_texts.append(res[4])
+            n_failures += 1
         bar.update(1)
 
     if len(results) == 0:
         print(f"No successful inferences for {model_name}. Skipping metrics.")
         return {}
 
-    n_requests = len(results) + n_failures
-    failures_perc = n_failures / n_requests
-
-    failure_texts = []
-
     for res in results:
         final_json, p_tokens, c_tokens, latency, failures = res
-        failure_texts.extend(failures)
+        if failures == []:
+            # failure_texts.append("No failures")
+            pass
+        else:
+            failure_texts.append(failures)
         p_tokens_total += p_tokens
         c_tokens_total += c_tokens
         gpu_usage_total += latency
@@ -447,7 +475,8 @@ def test_local_model(
 
         clfs_scores.append(scores_line)
         entities_found.append(entities_line)
-
+    n_requests = len(results) + n_failures
+    failures_perc = n_failures / n_requests
     clfs_true_no_err = np.asarray([clfs_true[i] for i in success_idx])
 
     if gpu_usage_total > 0:
@@ -471,6 +500,10 @@ def test_local_model(
     ]
 
     similarities_per_entity = {}
+    similarities_per_entity_simple = {}
+    recalls_simple = {}
+    precisions_simple = {}
+    verbosity_ratios = {}
 
     for entity_name in non_redundant_entity_names:
         pred_values = [
@@ -479,20 +512,32 @@ def test_local_model(
 
         true_values = [entities_true[i].get(entity_name, []) for i in success_idx]
 
-        fmax, jw_sim_max, recall, precision = find_max_jw_sim(
-            pred_values, true_values, field_name=entity_name
+        fmax1, jw_sim_max1, recall1, precision1, _ = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name, use_simple=True
         )
-        similarities_per_entity[entity_name] = jw_sim_max
-        recalls[entity_name] = recall
-        precisions[entity_name] = precision
+        similarities_per_entity_simple[entity_name] = jw_sim_max1
+        recalls_simple[entity_name] = recall1
+        precisions_simple[entity_name] = precision1
+
+        fmax2, jw_sim_max2, recall2, precision2, vr = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name, use_simple=False
+        )
+        similarities_per_entity[entity_name] = jw_sim_max2
+        recalls[entity_name] = recall2
+        precisions[entity_name] = precision2
+        verbosity_ratios[entity_name] = vr
 
     return {
         "fmax_per_col": fmax_per_col,
         "similarities_per_entity": similarities_per_entity,
+        "similarities_per_entity_simple": similarities_per_entity_simple,
         "recalls_at_good_precisions": recalls_at_good_precisions,
         "recalls": recalls,
+        "recalls_simple": recalls_simple,
         "precisions": precisions,
+        "precisions_simple": precisions_simple,
         "best_thresholds": best_thresholds,
+        "verbosity_ratios": verbosity_ratios,
         "meta": {
             "tokens_per_second_in": tokens_per_second_in,
             "tokens_per_second_out": tokens_per_second_out,
@@ -509,6 +554,17 @@ def test_local_model(
     }
 
 
+model_sizes = [
+    {"llama-3.1-8B-instruct": 8},
+    {"qwen3.5-35b": 35},
+    {"mistral-small-3.2-24b-instruct": 24},
+    {"magistral-small": 24},
+    {"gemma-3n-e4b-it": 4},
+    {"gpt-oss-120b": 120},  # 117B parameters with 5.1B active parameters
+    {"gemma-3-4b-it": 4},
+    {"deepseek-r1-distill-qwen-14b": 14},
+]
+
 if __name__ == "__main__":
     testing_perc = USE_PERC
     if len(sys.argv) > 1:
@@ -518,8 +574,8 @@ if __name__ == "__main__":
     print("Got temp access token")
     structured_models = serpro_initial_model_tests(access_token)"""
     structured_models = [
-        {"name": "llama-3.1-8B-instruct", "latency": 0.7867984771728516},
         {"name": "qwen3.5-35b", "latency": 0.8253350257873535},
+        {"name": "llama-3.1-8B-instruct", "latency": 0.7867984771728516},
         {"name": "mistral-small-3.2-24b-instruct", "latency": 1.0027306079864502},
         {"name": "magistral-small", "latency": 1.075148582458496},
         {"name": "gemma-3n-e4b-it", "latency": 1.1260874271392822},
@@ -532,6 +588,8 @@ if __name__ == "__main__":
 
     models_to_test = [d["name"] for d in structured_models]
 
+    # models_to_test = [models_to_test[0]]
+
     model_results = []
 
     for model_name in models_to_test:
@@ -540,7 +598,7 @@ if __name__ == "__main__":
 
         try:
             metrics = test_local_model(
-                model_name, testing_perc, use_cache=True, verbose=True
+                model_name, testing_perc, use_cache=True, verbose=False
             )
             if not metrics:
                 print(f"Skipping result save for {model_name} due to lack of metrics.")
@@ -548,11 +606,23 @@ if __name__ == "__main__":
 
             mean_fmax = np.mean(list(metrics["fmax_per_col"].values()))
             mean_jw_sim = np.mean(list(metrics["similarities_per_entity"].values()))
+            mean_jw_sim_simple = np.mean(
+                list(metrics["similarities_per_entity_simple"].values())
+            )
             mean_recall = np.mean(list(metrics["recalls"].values()))
+            mean_recall_simple = np.mean(list(metrics["recalls_simple"].values()))
             mean_precision = np.mean(list(metrics["precisions"].values()))
+            mean_precision_simple = np.mean(list(metrics["precisions_simple"].values()))
+            mean_verbosity_ratio = np.mean(list(metrics["verbosity_ratios"].values()))
 
             print(f"\tMean Fmax: {mean_fmax}")
             print(f"\tMean JW Sim: {mean_jw_sim}")
+            print(f"\tMean JW Sim Simple: {mean_jw_sim_simple}")
+            print(f"\tMean Recall: {mean_recall}")
+            print(f"\tMean Recall Simple: {mean_recall_simple}")
+            print(f"\tMean Precision: {mean_precision}")
+            print(f"\tMean Precision Simple: {mean_precision_simple}")
+            print(f"\tMean Verbosity Ratio: {mean_verbosity_ratio}")
             print(f"\tMeta: {metrics['meta']}")
 
             result_entry = {
@@ -560,14 +630,22 @@ if __name__ == "__main__":
                 "mean_metrics": {
                     "fmax": mean_fmax,
                     "jw_sim": mean_jw_sim,
+                    "jw_sim_simple": mean_jw_sim_simple,
                     "recall": mean_recall,
+                    "recall_simple": mean_recall_simple,
                     "precision": mean_precision,
+                    "precision_simple": mean_precision_simple,
+                    "verbosity_ratio": mean_verbosity_ratio,
                 },
                 "meta": metrics["meta"],
                 "fmax": metrics["fmax_per_col"],
                 "jw_sim": metrics["similarities_per_entity"],
+                "jw_sim_simple": metrics["similarities_per_entity_simple"],
                 "recall": metrics["recalls"],
+                "recall_simple": metrics["recalls_simple"],
                 "precision": metrics["precisions"],
+                "precision_simple": metrics["precisions_simple"],
+                "verbosity_ratio": metrics["verbosity_ratios"],
                 "best_thresholds": metrics["best_thresholds"],
                 "detailed_results": metrics,
             }

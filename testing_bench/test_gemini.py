@@ -39,13 +39,13 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
 class RespostaDeClassificacao(str, Enum):
-    #CERTAMENTE_SIM = "Certamente Sim"
+    # CERTAMENTE_SIM = "Certamente Sim"
     SIM = "Sim"
-    #PROVAVELMENTE_SIM = "Provavelmente Sim"
-    #NAO_SEI = "Não sei"
-    #PROVAVELMENTE_NAO = "Provavelmente Não"
+    # PROVAVELMENTE_SIM = "Provavelmente Sim"
+    # NAO_SEI = "Não sei"
+    # PROVAVELMENTE_NAO = "Provavelmente Não"
     NAO = "Não"
-    #CERTAMENTE_NAO = "Certamente Não"
+    # CERTAMENTE_NAO = "Certamente Não"
 
 
 class DetalhesGravidadeOcorrencia(pydantic.BaseModel):
@@ -70,14 +70,18 @@ class InformacoesOcorrencia(pydantic.BaseModel):
 
 
 class GeminiExtract:
-    def __init__(self, model: str):
+    def __init__(self, model: str, offline_mode: bool = False):
         self.model = model
-        if not GEMINI_API_KEY:
-            raise ValueError(
-                "GEMINI_API_KEY not found. Please set it in .env or environment variables."
-            )
 
-        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        if offline_mode:
+            self.client = None
+        else:
+            if not GEMINI_API_KEY:
+                raise ValueError(
+                    "GEMINI_API_KEY not found. Please set it in .env or environment variables."
+                )
+
+            self.client = genai.Client(api_key=GEMINI_API_KEY)
         self.system_prompt = "Você é um assistente que sempre responde estritamente no formato JSON especificado. Extraia informações da transcrição da chamada de emergência."
 
         self.answer_to_value = {
@@ -184,6 +188,11 @@ class GeminiExtract:
                 cached.get("latency", 0.0),
             )
 
+        if self.client is None:
+            raise ValueError(
+                "Client not initialized. Please set offline_mode=False to perform requests to the LLM."
+            )
+
         start_time = time.time()
         try:
             response = self.client.models.generate_content(
@@ -254,7 +263,7 @@ def test_gemini_model(model_name: str) -> dict:
 
     # Setup extractor
     try:
-        extractor = GeminiExtract(model=model_name)
+        extractor = GeminiExtract(model=model_name, offline_mode=True)
     except Exception as e:
         print(f"Failed to initialize extractor for {model_name}: {e}")
         return {}
@@ -341,6 +350,8 @@ def test_gemini_model(model_name: str) -> dict:
     ]
 
     similarities_per_entity = {}
+    similarities_per_entity_simple = {}
+    verbosity_ratios = {}
 
     for entity_name in non_redundant_entity_names:
         pred_values = [
@@ -352,19 +363,27 @@ def test_gemini_model(model_name: str) -> dict:
         ]
 
         # Guard against empty lists if needed, but find_max_jw_sim should handle it
-        fmax, jw_sim_max, recall, precision = find_max_jw_sim(
+        fmax, jw_sim_max, recall, precision, vr = find_max_jw_sim(
             pred_values, true_values, field_name=entity_name
         )
         similarities_per_entity[entity_name] = jw_sim_max
         recalls[entity_name] = recall
         precisions[entity_name] = precision
+        verbosity_ratios[entity_name] = vr
+
+        _, jw_sim_max2, _, _, _ = find_max_jw_sim(
+            pred_values, true_values, field_name=entity_name, use_simple=True
+        )
+        similarities_per_entity_simple[entity_name] = jw_sim_max2
 
     return {
         "fmax_per_col": fmax_per_col,
         "similarities_per_entity": similarities_per_entity,
+        "similarities_per_entity_simple": similarities_per_entity_simple,
         "recalls_at_good_precisions": recalls_at_good_precisions,
         "recalls": recalls,
         "precisions": precisions,
+        "verbosity_ratios": verbosity_ratios,
         "best_thresholds": best_thresholds,
         "meta": {
             "tokens_per_second_in": tokens_per_second_in,
@@ -378,7 +397,7 @@ def test_gemini_model(model_name: str) -> dict:
 
 
 if __name__ == "__main__":
-    results_path = "results/gemini_results2.json"
+    results_path = "results/gemini_results3.json"
 
     # Models ordered from best quality to lowest quality
     models_to_test = [
@@ -394,14 +413,14 @@ if __name__ == "__main__":
     models_to_test = list(reversed(models_to_test))
 
     results = []
-    if os.path.exists(results_path):
+    """if os.path.exists(results_path):
         try:
             with open(results_path, "r") as f:
                 results = json.load(f)
         except json.JSONDecodeError:
             results = []
 
-    existing_models = [r.get("model") for r in results]
+    existing_models = [r.get("model") for r in results]"""
 
     for model_name in models_to_test:
         """if model_name in existing_models:
@@ -418,25 +437,37 @@ if __name__ == "__main__":
 
             mean_fmax = np.mean(list(metrics["fmax_per_col"].values()))
             mean_jw_sim = np.mean(list(metrics["similarities_per_entity"].values()))
+            mean_jw_sim_simple = np.mean(
+                list(metrics["similarities_per_entity_simple"].values())
+            )
             mean_recall = np.mean(list(metrics["recalls"].values()))
             mean_precision = np.mean(list(metrics["precisions"].values()))
+            mean_verbosity = np.mean(list(metrics["verbosity_ratios"].values()))
 
             print(f"\tMean Fmax: {mean_fmax}")
             print(f"\tMean JW Sim: {mean_jw_sim}")
+            print(f"\tMean JW Sim Simple: {mean_jw_sim_simple}")
+            print(f"\tMean Recall: {mean_recall}")
+            print(f"\tMean Precision: {mean_precision}")
+            print(f"\tMean Verborrity: {mean_verbosity}")
 
             result_entry = {
                 "model": model_name,
                 "mean_metrics": {
                     "fmax": mean_fmax,
                     "jw_sim": mean_jw_sim,
+                    "jw_sim_simple": mean_jw_sim_simple,
                     "recall": mean_recall,
                     "precision": mean_precision,
+                    "verbosity": mean_verbosity,
                 },
                 "meta": metrics["meta"],
                 "fmax": metrics["fmax_per_col"],
                 "jw_sim": metrics["similarities_per_entity"],
+                "jw_sim_simple": metrics["similarities_per_entity_simple"],
                 "recall": metrics["recalls"],
                 "precision": metrics["precisions"],
+                "verbosity_ratios": metrics["verbosity_ratios"],
                 "best_thresholds": metrics["best_thresholds"],
             }
 

@@ -99,6 +99,16 @@ def process_vllm_response(response_dict, input_tokens, output_tokens, latency):
         clf_val = response_dict.get(clf_name, None)
         if clf_val is None:
             clf_val = "Não sei"
+        elif isinstance(clf_val, list):
+            print("Value should not be a list: ", clf_val, file=sys.stderr)
+            print(response_dict, file=sys.stderr)
+            if len(clf_val) >= 1:
+                if isinstance(clf_val[0], str):
+                    clf_val = clf_val[0]
+                elif isinstance(clf_val[0], dict):
+                    clf_val = clf_val[0].get("value", "Não sei")
+            else:
+                clf_val = "Não sei"
         clf_float = answer_to_value.get(clf_val, 0.5)
         clf_name_full = question_mapping[clf_name]
         if clf_name_full in entities:
