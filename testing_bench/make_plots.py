@@ -425,7 +425,7 @@ if __name__ == "__main__":
         [
             "subtype",
             "Tipo de Modelo",
-            "Custo-Benefício",
+            # "Custo-Benefício",
             "Qualidade Geral",
             "Power–delay product",
             "Qualidade Classificação",

@@ -152,13 +152,15 @@ if __name__ == "__main__":
 
             if model_price_info and "dollars_1m_tokens_in" in model_price_info:
                 # Token-based pricing
-                cost_in = (
-                    million_input_tokens * model_price_info["dollars_1m_tokens_in"]
-                )
-                cost_out = (
-                    million_output_tokens * model_price_info["dollars_1m_tokens_out"]
-                )
+                in_price = model_price_info["dollars_1m_tokens_in"]
+                out_price = model_price_info["dollars_1m_tokens_out"]
+                cost_in = million_input_tokens * in_price
+                cost_out = million_output_tokens * out_price
                 cost = cost_in + cost_out
+
+                print(
+                    f"Using API prices for {full_model_name}: $IN={in_price}/M, $OUT={out_price}/M, Total={cost}"
+                )
             else:
                 # Time-based pricing (fallback)
                 # If no specific time-based price found for this model, fallback to gcp_n1_t4 standard
@@ -176,11 +178,13 @@ if __name__ == "__main__":
                         print(
                             f"Using instance {instance_name} for model {full_model_name}"
                         )
-                        print(f"Hourly rate: {hourly_rate}")
                 elif model_price_info and "dollars_hour_standard" in model_price_info:
                     hourly_rate = model_price_info["dollars_hour_standard"]
 
                 cost = hourly_rate * (gpu_seconds / 3600.0)
+                print(
+                    f"Using time-based pricing for {full_model_name}: ${hourly_rate}/hour, Total=${cost}"
+                )
 
             row["total_cost"] = cost
             if samples > 0:
@@ -234,12 +238,12 @@ if __name__ == "__main__":
         df["Power–delay product"] / df["Power–delay product"].max()
     )
 
-    df["Custo-Benefício"] = (
+    """df["Custo-Benefício"] = (
         df["Qualidade Geral"] * 5 + df["Power–delay product norm."] * 5
-    ) / 10
+    ) / 10"""
 
     # sort again
-    df = df.sort_values(by="Custo-Benefício", ascending=False)
+    df = df.sort_values(by="Qualidade Geral", ascending=False)
 
     # Ensure output directory exists
     output_path = "results/df.csv"
@@ -256,7 +260,7 @@ if __name__ == "__main__":
         [
             "ner_model",
             "classification_model",
-            "Custo-Benefício",
+            # "Custo-Benefício",
             "Qualidade Geral",
             "Qualidade Classificação",
             "Qualidade Reconhecimento de Entidades",
