@@ -104,11 +104,11 @@
         "dollars_1m_tokens_out": 0.23622
     },
     "qwen3.5-35b": {
-        "dollars_1m_tokens_in": 0.017717,
-        "dollars_1m_tokens_out": 0.017717
+        "dollars_1m_tokens_in": 0.2807,
+        "dollars_1m_tokens_out": 0.6555
     },
     "magistral-small": {
-        "dollars_1m_tokens_in": 0.22441,
-        "dollars_1m_tokens_out": 0.401575
+        "dollars_1m_tokens_in": 0.3167,
+        "dollars_1m_tokens_out": 0.6844
     }
 }

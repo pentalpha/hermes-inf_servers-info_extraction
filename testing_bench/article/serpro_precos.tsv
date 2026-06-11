@@ -1,0 +1,9 @@
+Nome na API Serpro	Tamanho (BP)	Tokens por segundo IN	Tokens por segundo OUT	Preço 1k Tokens IN	Preço 1k Tokens OUT	Preço 1M Input	Preço 1M Output	Preço 1M Input em $	Preço 1M Output em $
+deepseek-r1-distill-qwen-14b	14,00	192,44	71,92	R$ 0,00180	R$ 0,00180	R$ 1,80000	R$ 1,80000	$0,354331	$0,354331
+gemma-3n-e4b-it	4,00	198,54	32,17	R$ 0,00060	R$ 0,00120	R$ 0,60000	R$ 1,20000	$0,118110	$0,236220
+llama-3.1-8B-instruct	8,00	325,14	38,10	R$ 0,00350	R$ 0,00460	R$ 3,50000	R$ 4,60000	$0,688976	$0,905512
+mistral-small-3.2-24b-instruct	24,00	334,13	47,34	R$ 0,00110	R$ 0,00320	R$ 1,10000	R$ 3,20000	$0,216535	$0,629921
+gpt-oss-120b	120,00	277,82	80,21	R$ 0,00160	R$ 0,00630	R$ 1,60000	R$ 6,30000	$0,314961	$1,240157
+gemma-3-4b-it	4,00	454,68	14,49	R$ 0,00060	R$ 0,00120	R$ 0,60000	R$ 1,20000	$0,118110	$0,236220
+qwen3.5-35b	35,00	420	74			R$ 0,00000	R$ 0,00000	$0,000000	$0,000000
+magistral-small	24,00	209	289			R$ 0,00000	R$ 0,00000	$0,000000	$0,000000
