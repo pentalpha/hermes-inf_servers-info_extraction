@@ -1,0 +1,433 @@
+\documentclass{IEEEphot}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx,color}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{multirow}
+%\usepackage{natbib}
+\hypersetup{hidelinks=true}
+\usepackage{algorithm,algorithmic}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\AtBeginDocument{\definecolor{tmlcncolor}{cmyk}{0.93,0.59,0.15,0.02}\definecolor{NavyBlue}{RGB}{0,86,125}}
+
+
+
+
+\def\OJlogo{\vspace{-4pt}$<$Society logo(s) and publication title will appear here.$>$}
+\def\seclogo{\vspace{10pt}$<$Society logo(s) and publication title will appear here.$>$}
+
+\def\authorrefmark#1{\ensuremath{^{\textbf{#1}}}}
+
+\begin{document}
+\receiveddate{XX Month, XXXX}
+\reviseddate{XX Month, XXXX}
+\accepteddate{XX Month, XXXX}
+\publisheddate{XX Month, XXXX}
+\currentdate{XX Month, XXXX}
+\doiinfo{XXXX.2022.1234567}
+
+\markboth{}{Author {et al.}}
+
+\title{Avaliação do uso de modelos de transcrição e extração de informação para chamadas de emergência no Brasil}
+
+\author{Pitágoras de A. Alves Sobrinho\authorrefmark{1,2}, Rafaela O. Marques\authorrefmark{1}, Robson M. do Carmo\authorrefmark{1},\\ Michell S. M. Resende\authorrefmark{1} e Igor M. da Silva\authorrefmark{1}}
+\affil{Ministério da Justiça e Segurança Pública, Brasília, CEP 70064-900 BR}
+\affil{Programa de Pós-graduação em Bioinformática, Universidade Federal do Rio Grande do Norte, Natal, CEP 59078-970 BR}
+\corresp{Corresponding author: Pitágoras de A. Alves Sob. (email: pitagoras.alves.104@ufrn.edu.br).}
+\authornote{Este trabalho recebeu suporte, através de créditos cedidos em suas plataformas, das empresas SERPRO, Google Cloud Brasil e Microsoft do Brasil.}
+
+
+\begin{abstract}
+Este trabalho avaliou \textit{Large Language Models} (LLMs) no cenário da transcrição, reconhecimento de entidades e classificação de chamadas de emergência brasileiras. Ele é parte do Projeto Hermes, uma iniciativa para aceleração de respostas à emergências através da transformação digital. Além dos LLMs mais comuns voltados a geração de respostas a \textit{prompts}, também avaliamos modelos especializados em transcrição e modelos codificadores especializados em classificação de \textit{tokens}. Para isso, criamos um novo \textit{dataset} sintético com os roteiros, meta-informações e áudios de chamadas de emergência simuladas - chamado Fake-Emergencies-BR. Os testes buscaram mensurar qualidade dos resultados, latência operacional e custo de execução. 
+
+%TODO Add quantitative summary of the main benchmark results once the final evaluation tables are consolidated.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Extração de Informações, Chamadas de Emergência, Processamento de Linguagem Natural, Benchmarking, Sistemas de Segurança Pública, Automatic Speech Recognition, Named Entity Recognition
+\end{IEEEkeywords}
+
+%\IEEEspecialpapernotice{(Invited Paper)}
+
+\maketitle
+
+\section{INTRODUÇÃO}
+
+\IEEEPARstart{C}{entros} de atendimento de emergência requerem rápida interpretação de informações estruturadas providas pelos cidadãos solicitantes. Atendentes atuam como protagonistas na fase manual desse fluxo, precisando identificar com agilidade informações críticas como a natureza do evento, a localização do incidente e as pessoas envolvidas para fins de diagnóstico e tomada de decisão \cite{niemeyer2015atendimento}. Em um ambiente crítico onde cada segundo é vital, o atendimento é realizado sob forte pressão, de modo que o desdobramento correto é crucial para evitar danos ao patrimônio ou a perda de vidas humanas \cite{souza1996dimensionamento, niemeyer2015atendimento}. Somado a isso, os atendentes de emergência precisam gerenciar simultaneamente uma complexa dupla tarefa que envolve a interação com o solicitante e o preenchimento de dados em sistemas informatizados \cite{niemeyer2015atendimento}. Isso resulta em um excesso de demanda cognitiva que pode resultar em demora no atendimento, erros humanos, perda de foco na comunicação e fragmentação de informações \cite{niemeyer2015atendimento}. Tais fatores podem acabar comprometendo a agilidade, precisão e qualidade essenciais para salvar vidas em situações de emergência.
+
+O Projeto Hermes \cite{act97_2025} é uma iniciativa do Ministério da Justiça e Segurança Pública que busca aplicar grandes modelos de linguagem (\textit{Large Language Models}, LLMs) para agilizar o atendimento de emergências em todo o Brasil. Seu objetivo central é reduzir o tempo entre o pedido de socorro e o atendimento pela equipe de campo através de 2 recursos centrais: transcrição automática de chamadas de emergência e preenchimento inteligente dos sistemas CAD (\textit{Computer-Aided Dispatch}) \cite{cad_def}. Através destes recursos seria possível dar apoio a eventos de emergência reduzindo a carga cognitiva que é colocada nos operadores humanos, erros de transcrição, demora no despacho e fragmentação da informação.
+
+Como parte deste esforço, este trabalho buscou avaliar múltiplos LLMs para extração de informação estruturada a partir de narrativas escritas em português brasileiro. As três dimensões centrais da avaliação são:
+
+\begin{itemize}
+    \item Qualidade dos resultados: Precisamos saber o quão bons os modelos são em realizar tarefas na linguagem específica deste domínio (em português brasileiro).
+    \item Latência operacional: Certos modelos podem ter latências altas que não possibilitam a operação em tempo real, dificultando o atendimento de emergências. Além disso o Brasil é um país com dimensões continentais, o qual inclui regiões com infraestruturas de tecnologicas muito distintas entre si, o que pode levar a aumentos nas latências. Sem baixas latências, os modelos não podem ser usados de forma adequada para o atendimento de emergências.
+    \item Custo de execução: A estimativa atual para a população brasileira é de 213 milhões de habitantes \cite{ibge2025estimativas}. Isso implica num grande número de emergências a serem atendidas. Cada um desses atendimentos vai necessitar de uma série de requisições às LLMs ao longo da chamada. Dessa forma, se os custos operacionais não forem baixos, o projeto pode acabar se mostrando inviável economicamente.
+\end{itemize}
+
+Além de modelos abertos, também buscamos testar modelos comerciais - o que foi viabilizado através de parcerias com a SERPRO, Google Cloud Brasil e Microsoft do Brasil. Foram testados modelos convencionais de geração de texto em resposta a \textit{prompts}, mas também modelos codificadores especializados na classificação de \textit{tokens} e modelos especializados na conversão de voz para texto (transcrição).
+
+\section{CRIAÇÃO DE UM \textit{DATASET} DE EMERGÊNCIAS SINTÉTICAS}
+
+Para avaliar as LLMs neste contexto especifico, eram necessária o acesso a áudios de ligações de emergência associados transcrições e metadados estruturados. Foi identificada uma falta de \textit{datasets} assim em português brasileiro. Um \textit{dataset} chamado fake-emergencies-br \cite{alves2026fake} foi criado para resolver essa limitação. Ele pode ser acessado no portal HuggingFace, no endereço \url{https://huggingface.co/datasets/pitagoras-alves/fake-emergencies-br}. Um procedimento híbrido foi utilizado, combinando geração procedural de cenários de emergência, seguida da escrita de roteiros a partir de múltiplos LLMs de geração de texto e a criação de áudios usando sistemas de geração de voz sintética.
+
+O objetivo era se aproximar da estrutura de emergências reais, enquanto a existência de um cenário pré-definido permitiria calcular métricas de qualidade ao comparar as informações extraídas com os metadados originais.
+
+Os tipos de valores para "Envolvimento", "Classificação de Ocorrência" e "Natureza de Ocorrência" representam opções de preenchimento reais disponíveis no sistema de atendimento de emergências "SinespCAD".
+
+\subsection{Geração Procedural de Cenários}
+
+O processo de geração dos cenários começou com a curadoria manual de 73 endereços reais no Brasil, incluindo informações como coordenadas, logradouro, número, bairro, cidade e estado. 
+
+Os endereços foram pesquisados no \textit{endpoint} "maps/api/place/nearbysearch/" da API Google Maps \cite{google_places_api} para obter, para cada endereço, até 3 pontos de referência reais a até 150 metros de distância. Depois, foi feito um procedimento para levar em consideração que endereços podem ser descritos de diferentes formas como Rua+Número+Cidade, Rua+Cidade e Rua+Bairro+Cidade. O único elemento obrigatório foi o nome da rua, seguido de alguma combinação de informações adicionais que poderia incluir número, complemento, bairro e cidade (ou nenhum desses elementos). Ao final, haviam 1740 opções de endereço com ponto de referência e descrição do endereço usada.
+
+Uma vez que os endereços já estão definidos, eles podem ser usado para iniciar a geração dos cenários. Para criar N cenários, são selecionados N valores aleatórios para os seguintes atributos: 
+
+\begin{itemize}
+    \item Endereço: qualquer um dos 1740 endereços gerados previamente;
+    \item Complemento do Endereço: Apto., apartamento, casa ou loja seguido de uma letra entre A e J ou um número entre 1 e 2000;
+    \item Natureza: uma entre 38 opções de Natureza de Ocorrência pré-definidas;
+    \item Idade: 5 a 95 anos;
+    \item Duração da Ligação: 36 segundos a 5 minutos;
+    \item Horário do Dia: entre 00:00 e 23:59;
+    \item Gênero: Homem ou Mulher;
+    \item Nível de Desespero/Estresse: entre 0 e 10;
+    \item Nome: aleatórios gerados de acordo com gênero pelo pacote "Faker" \cite{faker_package};
+    \item Nível de Instrução: entre analfabetismo completo e doutorado, de acordo com o que for compatível com a idade;
+\end{itemize}
+
+Com a exceção de Nome e Nível de Instrução, que tem diferentes listas de valores possíveis dependendo de outros atributos, todos os outros valores são sorteados aleatoriamente de forma independente.
+
+\subsection{Roteirização Automatizada}
+
+Foram gerados 550 roteiros com o modelo "Gemma3-GAIA" \cite{gaia}, 200 com o modelo "o1" \cite{openai_o1} e 140 com o modelo "gemini-3-pro-preview" \cite{gemini_api}, totalizando 890 roteiros distintos. Essas LLMs receberam as informações estruturadas de cada cenário e foram instruídas a gerar as falas do solicitante de forma condizente com a idade, nível de instrução e nível de estresse/desespero. 
+
+O roteiro resultante viria estruturado em uma lista de falas, acompanhado de certas classificações que dependiam da narração:
+
+\begin{itemize}
+    \item Envolvimento: tupla contendo o nome de um envolvido e sua classificação entre "Vítima", "Testemunha", "Comunicante", "Outro", "Foragido", "Desaparecido", "Condutor Veicular", "Autor", "Infrator" e "Advogado";
+    \item Classificação de Ocorrência: Valores do tipo Sim/Não para as perguntas "Fato Ocorrendo Neste Momento?", "Autor do Fato no Local?", "Autor do Fato Armado?", "Feridos com Risco de Morte?", "Risco de Tumulto?" e "Lei Maria da Penha?";
+\end{itemize}
+
+\subsection{Geração de Áudios Sintéticos}
+
+Os sistemas de geração de áudio utilizados foram o Azure \textit{Speech Service} da Microsoft Azure \cite{azure_speech_service} e o modelo "gemini-2.5-pro-tts" das APIs Gemini \cite{gemini_api}. Foram utilizadas diversas vozes diferentes para português brasileiro que estavam disponíveis nesses serviços. O Azure \textit{Speech Service} tinha 7 vozes masculinas, 8 vozes femininas e uma voz infantil. Já o Gemini TTS tinha 16 vozes masculinas e 14 vozes femininas. Foram escolhidas vozes distintas para operador e solicitante. A voz do operador podia ser qualquer voz feminina ou masculina. A voz do solicitante foi selecionada de acordo com o gênero. No caso de solicitantes com menos de 14 anos, os áudios gerados pelo Azure \textit{Speech Service} utilizaram a única voz infantil disponível. 
+
+Cada roteiro foi passado para ambos os serviços, gerando duas dublagens alternativas. Um total de 140 dos processos de geração de áudio falharam devido a limitações de créditos, resultando em um total de 1640 áudios de emergências sintéticas.
+
+\section{METODOLOGIA EXPERIMENTAL}
+
+Os testes empiricos deste estudo foram conduzidos utilizando créditos cedidos pela Microsoft Azure, SERPRO e Google Cloud Platform (GCP). Isso permitiu o acesso a APIs comerciais de chamada de LLMs. Adicionalmente, os créditos cedidos pela GCP permitiram a criação de uma máquina virtual de modelo N1 com 4 vCPUs, 15 GB de memória RAM e uma GPU Nvidia T4 com 16 GB de VRAM. Ela foi utilizada para executar LLMs abertas de diversos tipos, que não estavam disponíveis nas APIs parceiras. Enquanto as APIs comerciais da Microsoft Azure e GCP foram utilizadas para acessar modelos comerciais, as APIs da SERPRO nos deram acesso a modelos abertos de maior escala que não podiam ser instânciados na máquina virtual com GPU T4. Os LLMs foram utilizados para avaliar três tarefas:
+
+\begin{itemize}
+    \item Transcrição de Áudio (\textit{Automatic Speech Recognition}, ASR): Receber um arquivo de áudio no formato .WAV e retornar a transcrição do mesmo;
+    \item Extração de Entidades Nomeadas (\textit{Named Entity Recognition}, NER): Receber o roteiro gerado pelo modelo de geração e preencher o campo "entidades\_extraidas" do Algoritmo \ref{alg:template_info} com as entidades encontradas;
+    \item Classificação: Receber o roteiro gerado pelo modelo de geração e preencher o campo "classificacao\_ocorrencia" do Algoritmo \ref{alg:template_info} com as classificações encontradas;
+\end{itemize}
+
+Todos os LLMs avaliados aqui são baseados na arquitetura Transformer. Eles se dividem em três categorias principais: modelos de geração de texto especializados em resposta a \textit{prompts} textuais (aos quais vamos nos referir simplesmente como "modelos textuais"), modelos de geração de texto especializados em transcrever áudios (aos quais vamos nos referir simplesmente como "modelos de transcrição" ou "modelos ASR") e modelos codificadores - que não geram novos textos, mas sim representações vetoriais de textos (modelos de \textit{embedding}). Os modelos ASR foram avaliados na tarefa de transcrição de áudio. Os modelos textuais foram avaliados nas tarefas de NER e classificação. Além deles também havia uma familia especifica de modelos de embedding, os Gliner v2, capazes de realizar tanto NER quanto classificação de texto e eles também foram avaliados em ambas as tarefas. Os outros modelos de embedding eram capazes de realizar apenas NER ou apenas classificação. Por isso, eles foram avaliados em pares, com cada modelo de embedding para NER sendo combinado com cada um dos modelos de embedding para classificação. No total, foram avaliados 17 modelos de transcrição, 36 modelos textuais e 40 modelos de embedding - contabilizando 93 modelos no total. A lista completa está no apêndice \ref{apx:model_list}.
+
+Buscamos utilizar estes modelos da forma mais próxima possível às recomendações padrão de suas documentações oficiais. Não foram realizados procedimentos de otimização, como \textit{fine-tuning} ou \textit{prompt engineering} avançado. A tarefa dos modelos de transcrição consistia em transcrever o áudio para texto. A tarefa dos modelos de extração de informação consistia em preencher um template pré-definido, apresentado no código do Algoritmo \ref{alg:template_info}. O elemento \textit{decisão}, que representa as respostas para as perguntas de sim/não da classificação de ocorrência como um número real entre 0.0 e 1.0, foi introduzido para permitir o uso de métricas contínuas de avaliação.
+
+Para os modelos que já tinham as configurações necessárias disponíveis, a máquina virtual foi utilizada para executar localmente o servidor de inferência vLLM versão 0.15.1. Esse não foi o caso dos modelos de embedding. Para estes últimos, a máquina virtual foi utilizada para executar os modelos diretamente com as bibliotecas PyTorch 2.1, Transformers 4.57.3, Gliner 0.2.25, Gliclass 0.1.16. No caso dos modelos Gliner v2, foi utilizada a biblioteca Gliner2 1.2.4.
+
+Dada a limitação de recursos computacionais, foi feita uma amostragem do dataset fake-emergencies-br selecionando 429 amostras, as quais deveriam ter o valor de Sim para pelo menos um dos 6 atributos binários de Classificação de Ocorrência. Isso resultou no uso de aproximadamente 26\% das 1640 amostras disponíveis.
+
+\begin{algorithm}[H]
+\caption{\textit{Template} de classificação e extração.}\label{alg:template_info}
+\begin{algorithmic}
+\STATE \textbf{"decisão"}: \{
+\STATE \hspace{0.25cm} "Certamente Sim": 1.0,
+\STATE \hspace{0.25cm} "Sim": 0.85,
+\STATE \hspace{0.25cm} "Provavelmente Sim": 0.75,
+\STATE \hspace{0.25cm} "Chances Consideráveis": 0.70,
+\STATE \hspace{0.25cm} "Talvez": 0.65,
+\STATE \hspace{0.25cm} "Não sei": 0.50,
+\STATE \hspace{0.25cm} "Provavelmente Não": 0.35,
+\STATE \hspace{0.25cm} "Não": 0.10,
+\STATE \hspace{0.25cm} "Certamente Não": 0.0
+\STATE \},
+\STATE \textbf{"classificacao\_ocorrencia"}: \{
+\STATE \hspace{0.25cm} "fato\_ocorrendo\_neste\_momento": decisão,
+\STATE \hspace{0.25cm} "autor\_do\_fato\_no\_local": decisão,
+\STATE \hspace{0.25cm} "autor\_do\_fato\_armado": decisão,
+\STATE \hspace{0.25cm} "feridos\_com\_risco\_de\_morte": decisão,
+\STATE \hspace{0.25cm} "risco\_de\_tumulto": decisão,
+\STATE \hspace{0.25cm} "lei\_maria\_da\_penha": decisão,
+\STATE \},
+\STATE \textbf{"entidades\_extraidas"}: \{
+\STATE \hspace{0.25cm} "rua\_ou\_logradouro": [string],
+\STATE \hspace{0.25cm} "numero": [string],
+\STATE \hspace{0.25cm} "complemento": [string],
+\STATE \hspace{0.25cm} "bairro": [string],
+\STATE \hspace{0.25cm} "cidade": [string],
+\STATE \hspace{0.25cm} "ponto\_de\_referencia": [string],
+\STATE \hspace{0.25cm} "nome\_do\_solicitante": [string],
+\STATE \hspace{0.25cm} "pessoa": [string]
+\STATE \}
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Métricas utilizadas}
+
+Cada tarefa necessita de métricas diferentes para avaliar seu desempenho. A seguir, apresentamos as métricas utilizadas para cada tarefa.
+
+\subsubsection{Transcrição}
+
+A tarefa inicial consiste na conversão automatizada do sinal de áudio contido nas amostras do dataset \textit{Fake-Emergencies-BR} em texto legível. O desempenho dos modelos dedicados a esta etapa foi mensurado através da métrica de Taxa de Erro de Palavras (\textit{Word Error Rate} - WER), a qual é um padrão na área de ASR \cite{nlp_jurafsky}. Os textos receberam algumas normalizações antes da comparação: conversão para letras minúsculas, hifenização, aspas, pontuação repetida, espaços antes de pontuação e espaços repetidos. Mantivemos a maioria das pontuações para que fosse possível mensurar quanto dos erros vinha do uso incorreto de pontuação por parte dos modelos.
+
+\begin{equation}
+\text{WER} = 100 \cdot \frac{S + D + I}{N}
+\end{equation}
+
+Onde $S$ representa o número de substituições de palavras, $D$ o número de deleções, $I$ o número de inserções necessárias para alinhar a transcrição predita ao texto de referência original, e $N$ o número total de palavras no roteiro de referência. Um valor pequeno nesta métrica indica uma porcentagem baixa de palavras com alterações, enquanto valores altos indicam grandes mudanças. Calculamos também a redução no WER após a remoção de qualquer tipo de pontuação dos textos e após remoção de repetições de palavras.
+
+Diferentes ligações podem ter comprimentos diferentes, e para normalizar a avaliação, mensuramos a velocidade de inferência da transcrição em segundos por minuto de áudio (SMPA). Por exemplo, para uma ligação de 2 minutos, se a transcrição levar 30 segundos, o modelo terá uma velocidade de inferência de 15 segundos por minuto de áudio. Quanto menor esse valor, maior a capacidade de atender emergências em tempo real.
+
+\begin{equation}
+    \text{SMPA} = \frac{\text{Tempo de inferência (s)}}{\text{Minutos de áudio}}
+\end{equation}
+
+Quando se trata dos custos, as APIs comerciais da Microsof Azure e Google Cloud cobram por horas de áudio processado. Por isso, vamos representar o custo de cada modelo nesta grandeza. O custo por hora dos modelos de transcrição abertos será baseado no custo por hora da máquina virtual utilizada, no somatorio das durações em horas dos audios transcritos e no somatorio da duração de cada transcrição. Na época em que este estudo foi realizado, o custo por hora da máquina virtual utilizada era de $0,6 \ \text{US\$}$.
+
+\begin{equation}
+    C_{ASR} = 0,6 \left( \frac{\sum_{i=1}^{N} t_{proc, i}}{\sum_{i=1}^{N} t_{audio, i}} \right)
+\end{equation}
+
+Onde $C_{ASR}$ é o custo final por hora de áudio processado ($\text{US\$}/h$), $N$ é o número total de transcrições realizadas, $t_{proc, i}$ é o tempo de processamento gasto pelo modelo na $i$-ésima amostra ($h$), e $t_{audio, i}$ é a duração original da $i$-ésima amostra transcrita ($h$).
+
+\subsubsection{Reconhecimento de Entidades Nomeadas}
+
+Esta tarefa avalia a capacidade dos modelos de extrair os trechos de texto correspondentes às informações estruturadas de endereço, solicitante e participantes. Os textos (tanto os preditos quanto os de referência) foram normalizados para apenas caracteres minúsculos, para remover acentuações, remover pontuações e para retirar caracteres especiais. Para lidar com a flexibilidade da linguagem falada e abreviações típicas em contextos de urgência, também foram realizadas normalizações lexicas como expandir "apt" e "apto" para "apartamento", "av" e "av." para "avenida", "sr" e "sra" para "senhor" e "senhora", entre outras. 
+
+A métrica utilizada para avaliação de similaridade textual entre as entidades preditas e as anotações de referência ($\text{Sim}_{\text{text}}$) baseia-se na média aritmética entre duas métricas de distância de caracteres: a similaridade de Jaro-Winkler ($\text{Sim}_{\text{JW}}$) \cite{winkler1990string} e a similaridade de Levenshtein ($\text{Sim}_{\text{Lev}}$) \cite{nlp_jurafsky}. 
+
+\begin{equation}
+\text{Sim}_{\text{text}} = \frac{\text{Sim}_{\text{JW}}(\text{str}_1, \text{str}_2) + \text{Sim}_{\text{Lev}}(\text{str}_1, \text{str}_2)}{2}
+\end{equation}
+
+A escolha por uma abordagem híbrida, combinando as distâncias de Jaro-Winkler e Levenshtein, fundamenta-se na necessidade de equilibrar diferentes naturezas de erros ortográficos e variações estruturais comuns em transcrições de áudio de emergência.
+
+A similaridade de Levenshtein opera de forma puramente global, contabilizando o número absoluto de operações de inserção, deleção e substituição necessárias para transformar uma string em outra. Embora seja altamente eficaz para capturar pequenos erros de digitação ou fonemas mal transcritos ao longo de toda a palavra, ela penaliza severamente inversões, deslocamentos ou omissões em strings mais longas, mesmo quando o núcleo da entidade está correto.
+
+Por outro lado, a similaridade de Jaro-Winkler confere um peso significativamente maior a correspondências localizadas no início das strings (prefixos). Essa característica é particularmente vantajosa para o contexto de nomes próprios de pessoas ou logradouros, onde os primeiros caracteres carregam a maior carga de sinal para identificação da entidade e costumam ser preservados, tolerando pequenas variações ou truncamentos nos sufixos. Contudo, essa mesma sensibilidade ao prefixo torna o algoritmo propenso a inflar artificialmente a similaridade entre palavras curtas e distintas que compartilham letras iniciais semelhantes, gerando falsos positivos.
+
+Desse modo, a média aritmética unificada neutraliza as desvantagens isoladas de cada algoritmo: a rigidez global de Levenshtein atenua as superestimações de prefixo causadas por Jaro-Winkler em strings curtas, enquanto a flexibilidade de Jaro-Winkler impede que pequenas discrepâncias ou truncamentos nas terminações textuais colapsem o \textit{score} de entidades legítimas.
+
+\subsubsection{Classificação}
+
+A última tarefa consiste na classificação multirrótulo do cenário de emergência com base nas 6 variáveis binárias de criticidade e contexto legal definidas no SinespCAD.
+
+Para mitigar o viés de escolha de um limiar fixo arbitrário (\textit{threshold}) para modelos com calibrações probabilísticas distintas, o desempenho de classificação foi avaliado através do F1-Máximo ($F_{\text{max}}$) \cite{jiang2016expanded}. A métrica determina de forma otimizada o melhor equilíbrio alcançável entre Precisão e Sensibilidade (\textit{Recall}) ao longo de uma varredura de $1.000$ thresholds discretos no intervalo $[0, 1]$, sendo expressa por:
+
+\begin{equation}
+F_{\text{max}} = \max_{th} \left( 2 \cdot \frac{\text{Precisão}(th) \cdot \text{Sensibilidade}(th)}{\text{Precisão}(th) + \text{Sensibilidade}(th)} \right)
+\end{equation}
+
+As matrizes de predições binárias geradas em cada limiar ($th$) são confrontadas diretamente com a matriz de gabaritos reais para o cálculo cumulativo de verdadeiros positivos, falsos positivos e falsos negativos de cada coluna de classificação. O valor de $F_{\text{max}}$ resultante é próximo de 1.0 quando Precisão e Sensibilidade são quase perfeitas, mas se reduz em direção ao 0.0 quando qualquer um dos dois for muito baixo.
+
+\subsubsection{Custo de Reconhecimento de Entidades e Classificação}
+
+Nas APIs comerciais, o custo das requisições é diferente para cada modelo. Cada um tem um custo por milhão de tokens de entrada e um custo por milhão de tokens de saída. Então, o custo total de extrair informações de uma amostra é dado por:
+
+\begin{equation}
+C_{text_api} = C_{in} \cdot N_{in} + C_{out} \cdot N_{out}
+\end{equation}
+
+Onde $C_{in}$ e $C_{out}$ são os custos por milhão de tokens de entrada e saída, respectivamente. Já $N_{in}$ e $N_{out}$ são o número de tokens de entrada e saída, respectivamente.
+
+Para os modelos abertos executados na maquina virutal, o custo é dado pelo tempo de inferência e pelo custo por hora de uso da maquina virtual. 
+
+\begin{equation}
+C_{open} = 0,6 \cdot T_{infer}
+\end{equation}
+
+Onde $0,6$ é o custo por hora de uso da maquina virtual. Já $T_{infer}$ é o tempo de inferência em horas.
+
+O custo por milhões de tokens de cada modelo está apresentado no apêndice \ref{apx:api_prices}
+
+% Please add the following required packages to your document preamble:
+% \usepackage{multirow}
+\begin{table*}[t]
+\centering
+\caption{Resultados da Avaliação de Modelos de Transcrição}
+\setlength{\tabcolsep}{6pt}
+\label{tab:results_asr1}
+\begin{tabular}{lcccccc}
+\hline
+\multicolumn{1}{|c|}{\multirow{2}{*}{\textbf{Nome do Modelo}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{\begin{tabular}[c]{@{}c@{}}$WER$ em\\ Português no Open\\ ASR Leaderboard \cite{oal2026} \end{tabular}}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{$WER$}}} & \multicolumn{2}{c|}{\textbf{Porcentagem do WER:}}                                                                                                                                          & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{$SMPA$}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{$C_{ASR}$}}} \\ \cline{4-5}
+\multicolumn{1}{|c|}{}                                         & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{}                                & \multicolumn{1}{c|}{\textbf{\begin{tabular}[c]{@{}c@{}}Pontuação\\ incorreta (\%)\end{tabular}}} & \multicolumn{1}{c|}{\textbf{\begin{tabular}[c]{@{}c@{}}Repetições\\ (\%)\end{tabular}}} & \multicolumn{1}{c|}{}                                 & \multicolumn{1}{c|}{}                                    \\ \hline
+\multicolumn{1}{|l|}{azure-fast-transcribe}                    & \multicolumn{1}{c|}{3,1}                                                                                                              & \multicolumn{1}{c|}{12,1}                            & \multicolumn{1}{c|}{52,6}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{5,28}                             & \multicolumn{1}{c|}{0,3600}                              \\
+\multicolumn{1}{|l|}{chirp3}                                   & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{13,5}                            & \multicolumn{1}{c|}{50,2}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{15,12}                            & \multicolumn{1}{c|}{0,2400}                              \\
+\multicolumn{1}{|l|}{chirp2}                                   & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{13,8}                            & \multicolumn{1}{c|}{51,1}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{18,5}                             & \multicolumn{1}{c|}{0,2400}                              \\
+\multicolumn{1}{|l|}{qwen/qwen3-asr-1.7b}                      & \multicolumn{1}{c|}{6,29}                                                                                                             & \multicolumn{1}{c|}{14,7}                            & \multicolumn{1}{c|}{47,3}                                                                        & \multicolumn{1}{c|}{0,2}                                                                & \multicolumn{1}{c|}{4,32}                             & \multicolumn{1}{c|}{0,0512}                              \\
+\multicolumn{1}{|l|}{openai/whisper-large-v3-turbo}            & \multicolumn{1}{c|}{4,67}                                                                                                             & \multicolumn{1}{c|}{15,9}                            & \multicolumn{1}{c|}{40,9}                                                                        & \multicolumn{1}{c|}{10,0}                                                               & \multicolumn{1}{c|}{2,26}                             & \multicolumn{1}{c|}{0,0267}                              \\
+\multicolumn{1}{|l|}{openai/whisper-large-v3}                  & \multicolumn{1}{c|}{4,96}                                                                                                             & \multicolumn{1}{c|}{17,5}                            & \multicolumn{1}{c|}{36,8}                                                                        & \multicolumn{1}{c|}{5,7}                                                                & \multicolumn{1}{c|}{8,84}                             & \multicolumn{1}{c|}{0,1046}                              \\
+\multicolumn{1}{|l|}{openai/whisper-small}                     & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{19,1}                            & \multicolumn{1}{c|}{36,3}                                                                        & \multicolumn{1}{c|}{12,6}                                                               & \multicolumn{1}{c|}{3,11}                             & \multicolumn{1}{c|}{0,0368}                              \\
+\multicolumn{1}{|l|}{qwen/qwen3-asr-0.6b}                      & \multicolumn{1}{c|}{10,09}                                                                                                            & \multicolumn{1}{c|}{21,7}                            & \multicolumn{1}{c|}{47,8}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{3,93}                             & \multicolumn{1}{c|}{0,0465}                              \\
+\multicolumn{1}{|l|}{remynd/whisper-medium-pt}                 & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{24,8}                            & \multicolumn{1}{c|}{54,2}                                                                        & \multicolumn{1}{c|}{2,2}                                                                & \multicolumn{1}{c|}{6,3}                              & \multicolumn{1}{c|}{0,0745}                              \\
+\multicolumn{1}{|l|}{openai/whisper-medium}                    & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{24,9}                            & \multicolumn{1}{c|}{27,0}                                                                        & \multicolumn{1}{c|}{24,4}                                                               & \multicolumn{1}{c|}{6,29}                             & \multicolumn{1}{c|}{0,0745}                              \\
+\multicolumn{1}{|l|}{openai/whisper-base}                      & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{28,3}                            & \multicolumn{1}{c|}{25,1}                                                                        & \multicolumn{1}{c|}{23,4}                                                               & \multicolumn{1}{c|}{3,3}                              & \multicolumn{1}{c|}{0,0390}                              \\
+\multicolumn{1}{|l|}{chirp telephony}                          & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{29,4}                            & \multicolumn{1}{c|}{74,2}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{23,6}                             & \multicolumn{1}{c|}{0,2400}                              \\
+\multicolumn{1}{|l|}{remynd/whisper-small-pt}                  & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{30,2}                            & \multicolumn{1}{c|}{52,3}                                                                        & \multicolumn{1}{c|}{4,8}                                                                & \multicolumn{1}{c|}{2,49}                             & \multicolumn{1}{c|}{0,0294}                              \\
+\multicolumn{1}{|l|}{nilc-nlp/distil-whisper-coraa-mupe-asr}   & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{32,6}                            & \multicolumn{1}{c|}{61,2}                                                                        & \multicolumn{1}{c|}{0,2}                                                                & \multicolumn{1}{c|}{1,36}                             & \multicolumn{1}{c|}{0,0161}                              \\
+\multicolumn{1}{|l|}{dominguesm/whisper-tiny-pt}               & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{42,5}                            & \multicolumn{1}{c|}{21,2}                                                                        & \multicolumn{1}{c|}{17,2}                                                               & \multicolumn{1}{c|}{2,14}                             & \multicolumn{1}{c|}{0,0254}                              \\
+\multicolumn{1}{|l|}{pierreguillou/whisper-medium-portuguese}  & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{45,0}                            & \multicolumn{1}{c|}{29,2}                                                                        & \multicolumn{1}{c|}{27,6}                                                               & \multicolumn{1}{c|}{6,3}                              & \multicolumn{1}{c|}{0,0745}                              \\
+\multicolumn{1}{|l|}{facebook/mms-1b-all}                      & \multicolumn{1}{c|}{}                                                                                                                 & \multicolumn{1}{c|}{46,5}                            & \multicolumn{1}{c|}{35,8}                                                                        & \multicolumn{1}{c|}{0}                                                                  & \multicolumn{1}{c|}{0,22}                             & \multicolumn{1}{c|}{0,0026}                              \\ \hline
+\multicolumn{7}{c}{\begin{tabular}[c]{@{}c@{}}Aqui, foram identicados dois tipos de erros que representavam uma porcentagem relevante do WER: repetições e pontuação. \\ Apenas alguns destes modelos também tinham pontuações para Português no Open ASR Leaderboard.\end{tabular}}                                                                                                                                                                                                                                                                                         
+\end{tabular}
+\end{table*}
+
+\section{RESULTADOS}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{cost_vs_latency_vs_quality2_dpi160.png}
+\caption{Custo-Benefício de Modelos de Extração de Informação. Cores indicam a latência média em segundos. Diferentes tipos de marcadores foram utilizados para diferenciar tipos de LLM. Dada a grande quantidade de combinações entre Gliner e Classificador, apenas a combinação de melhor desempenho foi nomeada na figura.}
+\label{fig:cost_vs_latency_vs_quality}
+\end{figure*}
+
+\begin{table*}[t]
+\centering
+\caption{25 Modelos de Melhor Desempenho em Tarefas de Extração de Informação}
+\setlength{\tabcolsep}{11pt}
+\label{tab:results_info_extract1}
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Modelos}}                                                                    & \textbf{\begin{tabular}[c]{@{}c@{}}Qualidade \\ Geral\end{tabular}} & \textbf{$F_{max}$} & \textbf{$SIM_{text}$} & \textbf{\begin{tabular}[c]{@{}c@{}}Taxa de\\ Sucesso\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Custo\\ Médio (\$)\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Latência\\ Média (s)\end{tabular}} \\ \hline
+gemini-3-flash-preview                                                                                    & 86,7\%                                                              & 89,4\%        & 83,9\%           & 100,000\%                                                          & 0,0007                                                              & 10,0                                                                  \\
+gemini-2.5-pro                                                                                            & 85,8\%                                                              & 89,0\%        & 82,5\%           & 100,000\%                                                          & 0,0029                                                              & 8,5                                                                   \\
+gemini-2.5-flash                                                                                          & 84,1\%                                                              & 85,1\%        & 83,1\%           & 100,000\%                                                          & 0,0007                                                              & 4,7                                                                   \\
+gpt-5.2-chat                                                                                              & 83,8\%                                                              & 85,9\%        & 81,7\%           & 99,534\%                                                           & 0,0063                                                              & 8,9                                                                   \\
+qwen3.5-35b                                                                                               & 83,0\%                                                              & 82,5\%        & 83,6\%           & 100,000\%                                                          & 0,0005                                                              & 3,1                                                                   \\
+mistral-small-3.2-24b-instruct                                                                            & 81,3\%                                                              & 82,7\%        & 80,0\%           & 100,000\%                                                          & 0,0004                                                              & 4,0                                                                   \\
+gpt-5-chat                                                                                                & 80,9\%                                                              & 79,5\%        & 82,3\%           & 99,301\%                                                           & 0,0025                                                              & 4,5                                                                   \\
+gpt-oss-120b                                                                                              & 79,7\%                                                              & 77,9\%        & 81,5\%           & 100,000\%                                                          & 0,0009                                                              & 4,7                                                                   \\
+gpt-5-mini                                                                                                & 79,7\%                                                              & 82,6\%        & 76,8\%           & 99,767\%                                                           & 0,0025                                                              & 12,8                                                                  \\
+gpt-4.1                                                                                                   & 82,2\%                                                              & 83,6\%        & 80,8\%           & 96,270\%                                                           & 0,0031                                                              & 3,6                                                                   \\
+magistral-small                                                                                           & 78,9\%                                                              & 79,1\%        & 78,6\%           & 100,000\%                                                          & 0,0006                                                              & 6,4                                                                   \\
+mistralai/Ministral-3-8B-Instruct-2512                                                                    & 79,1\%                                                              & 79,2\%        & 79,1\%           & 99,301\%                                                           & 0,0002                                                              & 1,5                                                                   \\
+gemini-2.5-flash-lite                                                                                     & 78,1\%                                                              & 75,3\%        & 81,0\%           & 100,000\%                                                          & 0,0001                                                              & 1,0                                                                   \\
+gemma-3n-e4b-it                                                                                           & 75,8\%                                                              & 71,4\%        & 80,2\%           & 100,000\%                                                          & 0,0002                                                              & 6,6                                                                   \\
+o3-mini                                                                                                   & 78,1\%                                                              & 72,9\%        & 83,3\%           & 96,503\%                                                           & 0,0081                                                              & 13,7                                                                  \\
+mistralai/Ministral-3-3B-Instruct-2512                                                                    & 74,6\%                                                              & 72,6\%        & 76,7\%           & 99,534\%                                                           & 0,0001                                                              & 0,4                                                                   \\
+gpt-4o-mini                                                                                               & 77,1\%                                                              & 75,2\%        & 79,0\%           & 96,037\%                                                           & 0,0002                                                              & 3,8                                                                   \\
+Qwen/Qwen3-4B-Instruct-2507-FP8                                                                           & 73,6\%                                                              & 69,5\%        & 77,7\%           & 100,000\%                                                          & 0,0001                                                              & 0,6                                                                   \\
+gemini-2.0-flash                                                                                          & 72,0\%                                                              & 61,7\%        & 82,2\%           & 100,000\%                                                          & 0,0001                                                              & 1,5                                                                   \\
+gpt-5-nano                                                                                                & 72,4\%                                                              & 64,6\%        & 80,3\%           & 96,737\%                                                           & 0,0012                                                              & 28,2                                                                  \\
+Goekdeniz-Guelmez/JOSIE-4B-Instruct                                                                       & 68,2\%                                                              & 65,9\%        & 70,6\%           & 99,767\%                                                           & 0,0003                                                              & 1,6                                                                   \\
+gemini-2.0-flash-lite                                                                                     & 67,9\%                                                              & 55,8\%        & 79,9\%           & 100,000\%                                                          & 0,0001                                                              & 1,3                                                                   \\
+CohereLabs/tiny-aya-global                                                                                & 67,3\%                                                              & 65,7\%        & 69,0\%           & 100,000\%                                                          & 0,0001                                                              & 0,7                                                                   \\
+\begin{tabular}[c]{@{}l@{}}knowledgator/gliner-x-large \\ + knowledgator/gliclass-large-v3.0\end{tabular} & 67,3\%                                                              & 62,8\%        & 71,9\%           & 100,000\%                                                          & 0,0001                                                              & 0,5                                                                   \\ \hline
+\multicolumn{7}{c}{\footnotesize{Linhas ordenadas de acordo com Qualidade Geral, a média entre $F_{max}$ e $SIM_{text}$.}}\\
+\multicolumn{7}{c}{\footnotesize{Resultados dos outros 99 testes estão disponíveis no Apêndice \ref{apx:info_extract_results}.}}\\
+\end{tabular}
+
+\end{table*}
+
+Esta seção apresenta os achados empíricos obtidos a partir do \textit{benchmark} conduzido com o subconjunto de amostras do dataset \textit{Fake-Emergencies-BR}. A análise é segmentada entre o desempenho dos modelos de transcrição e a qualidade das tarefas integradas de extração de entidades e classificação.
+
+\subsection{Desempenho em transcrição}
+
+Os modelos especializados na conversão de voz para texto foram avaliados com base na métrica de \textit{Word Error Rate} (WER). Os resultados (Tabela \ref{tab:results_asr1}) indicam uma variação significativa na robustez das transcrições, dependendo do modelo utilizado, variando entre 12,1\% (azure-fast-transcribe) e 46,5\% (mms-1b-all). As APIs comerciais obtiveram os melhores resultados, com destaque para azure-fast-transcribe e chirp3, que alcançaram WERs de 12,1\% e 13,5\%, respectivamente. Em seguida, Qwen3-ASR-1.7B e Whisper-Large-v3-Turbo se destacaram como os modelos abertos de melhor desempenho, com WERs de 15,8\% e 16,2\%, respectivamente.
+
+O tipo mais comum de erro observado foi o de pontuação incorreta. Nos melhores modelos, estes representaram cerca de metade dos erros. Um tipo de erro foi frequente nos modelos OpenAI Whisper, mas pouco encontrado nos outros: as repetições de palavras. A remoção dessas repetições utilizando padrões de expressões regulares trouxe uma redução de 5,7\% a 27,6\% nestes modelos. A avaliação incluiu alguns \textit{fine-tunings} de modelos Whisper para o Português, mas não observamos um aumento de desempenho neles em comparação com os modelos Whisper multilingues originais.
+
+Todos os modelos testados aqui apresentaram latências baixas. O modelo menos veloz (o chirp telephony), ainda conseguiu transcrever áudios em menos da metade de seu tempo de duração. O modelo de maior precisão (azure-fast-transcribe) também foi um dos mais rápidos com uma média de 5,28 segundos para transcrever um minuto de áudio. As APIs chirp2 e 3 tiveram latências razoavelmente maiores. Todos os modelos abertos, executados localmente na máquina virtual de testes com GPU T4 de 16GB de VRAM, demonstraram baixissímas latências. Muitos deles conseguiram atingir latências de apenas 1 a 3 segundos por minuto de áudio.
+
+Outro destaque no desempenho dos modelos abertos foi sem baixo custo quando comparado com as APIs comerciais de ASR. Enquanto elas cobram entre 24 e 36 centávos de dólar por hora de áudio, mesmo os melhores modelos abertos tiveram custos operacionais de apenas 5 (Qwen3-ASR-1.7b) e 2 (Whisper-Large-v3-Turbo) centavos por hora.
+
+% TODO Inserir os resultados quantitativos e a tabela de benchmark de WER dos modelos de transcrição (ex: Whisper, Azure Speech, etc.).
+
+\subsection{Desempenho em reconhecimento de entidades e classificação}
+
+A avaliação da qualidade de extração revelou distinções claras entre as diferentes categorias de arquiteturas avaliadas. Os modelos de linguagem comerciais de grande porte atingiram os maiores níveis de qualidade geral de extração entre todos os sistemas testados. Em particular, as variantes das famílias Gemini (2.5/3) e GPT figuraram consistentemente no topo do ranking de desempenho.
+
+Por outro lado, múltiplos modelos abertos demonstraram competitividade relevante, mesmo operando com contagens de parâmetros substancialmente menores. Modelos das famílias Ministral e Qwen alcançaram níveis de qualidade de extração comparáveis aos de algumas APIs comerciais em diversos cenários testados. 
+
+As arquiteturas baseadas exclusivamente em codificadores (\textit{encoder-only}) apresentaram um perfil de desempenho distinto. A abordagem combinada utilizando o modelo GLiNER-X-Large para o reconhecimento de entidades junto ao GliClass-Large-v3 para a classificação de eventos gerou resultados robustos dentro de sua categoria, superando inclusive modelos generativos de maior porte em tarefas específicas de extração.
+
+%TODO Inserir a tabela consolidada de ranking do benchmark com os resultados quantitativos de Fmax, JW-Sim e Qualidade Geral.
+
+\subsection{Características de Latência e Tempo de Execução}
+
+A latência de inferência variou em várias ordens de magnitude dependendo da classe do modelo. Os modelos baseados em \textit{encoders} registraram os menores tempos de execução, refletindo sua arquitetura leve e o design especializado para tarefas de extração. 
+
+Entre as arquiteturas generativas, os modelos abertos menores (com tamanho de até 4 bilhões de parâmetros) exibiram latências significativamente inferiores em comparação aos modelos de maior escala. No cenário de modelos hospedados em nuvem, as variantes otimizadas para processamento rápido, como os modelos Gemini Flash, também demonstraram latências comparativamente baixas dentro do ecossistema de LLMs comerciais.
+
+\subsection{Custo Operacional}
+
+O comportamento dos custos operacionais mostrou-se estritamente dependente do ambiente de implantação. Para os modelos executados localmente na infraestrutura de hardware dedicada, o custo financeiro possui uma relação diretamente linear com o tempo de execução (\textit{runtime}) da instância de máquina virtual.
+
+Em contrapartida, a precificação das APIs comerciais em nuvem introduz uma variabilidade baseada na volumetria de tokens trafegados (entrada e saída), independentemente do tempo físico de processamento. Nesse cenário de bilhetagem por token, modelos como o Gemini Flash e o GPT-4o-mini apresentaram perfis de custo-benefício altamente favoráveis.
+
+\subsection{Taxas de Sucesso e Confiabilidade}
+
+Durante a execução dos testes, identificaram-se duas falhas críticas de processamento operando como principais modos de quebra dos modelos: o estouro do tempo limite de resposta (\textit{timeouts} de inferência) e a recusa explícita de resposta (\textit{alignment refusal}) a prompts que descreviam cenários de violência física ou doméstica. 
+
+O segundo modo de falha apresenta implicações severas para a viabilidade prática em sistemas de segurança pública, onde narrativas violentas são inerentes à rotina operacional. Para implantações em ambientes reais de atendimento de emergência, a taxa de sucesso opera como uma métrica crítica de confiabilidade, de modo que sistemas com taxas inferiores a 99\% introduzem riscos operacionais inaceitáveis devido ao não processamento ou fragmentação de chamados de socorro.
+
+\section{DISCUSSÃO}
+
+% Discutir: natureza imperfeita dos dados sintéticos (que foi minimizado com a redundancia de modelos distintos), WERs altos quando comparados a outros testes (pontuação), 
+
+Os resultados empíricos consolidam compromissos técnicos vitais (\textit{trade-offs}) entre qualidade de extração, custo financeiro e latência operacional, os quais devem guiar o desenho de arquiteturas de sistemas de triagem. Embora as LLMs comerciais de grande porte ainda detenham a liderança em termos de qualidade bruta e acurácia de preenchimento, os modelos abertos consolidam-se como alternativas viáveis e competitivas, com a vantagem crucial de permitirem a implantação local em ambientes de infraestrutura controlada e governamental — um requisito frequentemente mandatório para a segurança de dados públicos.
+
+Para cenários com severas restrições de hardware ou demandas de latência na casa dos milissegundos, os modelos especializados baseados em \textit{encoders} (como a combinação GLiNER e GliClass) oferecem uma rota de implantação altamente eficiente. Eles viabilizam uma execução veloz com custos operacionais mínimos, retendo um nível de desempenho aceitável para a triagem inicial de chamadas. Essas ponderações estruturais permitem que os projetistas do sistema selecionem os modelos com base na disponibilidade real de infraestrutura e nos requisitos específicos de tempo de resposta da aplicação de segurança pública.
+
+\section{CONCLUSÃO}
+
+Este estudo apresentou uma análise comparativa de modelos de inteligência artificial aplicados à extração estruturada de informações em cenários de chamadas de emergência no Brasil. A avaliação empírica cobriu múltiplas abordagens arquiteturais em duas tarefas centrais alinhadas ao sistema SinespCAD: a extração de entidades de endereço e participantes e a classificação multirrótulo de criticidade do evento. Além dos parâmetros de qualidade estática, a análise incorporou dimensões dinâmicas de latência, custo operacional e taxas de sucesso de inferência.
+
+Os resultados demonstram que, embora os modelos comerciais de larga escala apresentem o maior desempenho absoluto, modelos abertos compactos oferecem um balanço competitivo com exigências computacionais drasticamente menores, enquanto os modelos do tipo \textit{encoder} consolidam-se como soluções de alta eficiência para ambientes de hardware restrito. Estes achados fornecem um mapeamento prático para apoiar decisões de engenharia de software e MLOps na infraestrutura de resposta a emergências do Projeto Hermes.
+
+Trabalhos futuros estenderão esta avaliação para o acoplamento fim-a-fim entre os módulos de transcrição de áudio e extração de texto, além de conduzirem testes de carga em larga escala para simular regimes de concorrência e estresse idênticos aos picos de demanda das centrais de atendimento reais.
+
+\section*{APÊNDICES}
+
+Os seguintes materiais suplementares estão disponíveis em anexo:
+
+\begin{enumerate}
+    \item Tabela com a lista completa das LLMs avaliadas: \href{https://docs.google.com/spreadsheets/d/1UOkDTzDxY3d-jqjCfmKdDqE0pEKLQ6xktkMWq778H-I/edit?usp=sharing}{LLMs Avaliadas.xlsx} \label{apx:model_list}
+    \item Tabela com preços de APIs comerciais: \href{https://docs.google.com/spreadsheets/d/1KAiIcz5XdF48qHfLTqmgpDR6q8Pshca5mSIR-16KUWA/edit?usp=sharing}{Precos APIs.xlsx} \label{apx:api_prices}
+    \item Tabela completa de resultados de reconhecimento de entidades nomeadas e classificação \href{https://docs.google.com/spreadsheets/d/1mpz3oGaerNNI0qwNpJYvi-3lv4r3vAlylgZwpDGCaM0/edit?usp=sharing}{Resultados Completos - Extração de Informações.xlsx} \label{apx:info_extract_results}
+\end{enumerate}
+
+\section*{CONTRIBUIÇÕES}
+
+\begin{itemize}
+    \item Pitágoras de A. Alves Sobrinho: conceitualização, metodologia, software, validação, análise formal, investigação, curadoria de dados, escrita (manuscrito original), visualização;
+    \item Rafaela O. Marques: conceitualização, metodologia, análise formal;
+    \item Robson S. Carmo: conceitualização, administração do projeto, aquisição de fundos;
+    \item Michell S. M. Resende: conceitualização;
+    \item Igor M. da Silva: conceitualização, escrita (manuscrito original), administração do projeto, aquisição de fundos, supervisão;
+    %TODO Describe author contributions using the CRediT taxonomy once the final author list is defined.
+    % TODO adicionar quem participou da revisão final após a revisão acontecer
+\end{itemize}
+
+
+
+\section*{CONFLITOS DE INTERESSE}
+Os autores declaram que eles não tem conflitos de interesses.
+
+\section*{AGRADECIMENTOS}
+
+%TODO: incluir agradecimentos a:
+% Parceria entre MJSP e MGI
+% SERPRO
+% Microsoft do Brasil
+% Google Cloud do Brasil
+
+\section*{DISPONIBILIDADE DE DADOS}
+The datasets and software generated and analysed during the current study will be made available upon request. TODO: adicionar repositórios aqui
+
+\bibliographystyle{IEEEAnnot}
+\bibliography{annot}
+
+\vfill\pagebreak
+
+\end{document}
