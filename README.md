@@ -21,10 +21,10 @@ source vllm_server/start_ministral3b_light.sh
 
 ## Build and Run Gliner+Gliclass
 
-This will build the docker image (based on NVIDIA Triton) and run it with it's custom scripts for running encoder-only information extraction models of the Gliner an Gliclass families.
+This will build the docker image (based on NVIDIA Triton) and run it with it's custom scripts for running encoder-only information extraction models of the Gliner and Gliclass families. This can be used by Hermes Backend for NER, but it is not capable of doing text generation tasks.
 
 ```sh
-cd gliner
+cd gliner_gliclass
 chmod +x up.sh
 ./up.sh
 ```
